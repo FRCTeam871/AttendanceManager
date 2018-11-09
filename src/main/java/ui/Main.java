@@ -10,10 +10,14 @@ import com.google.zxing.oned.MultiFormatOneDReader;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.Dimension;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.RescaleOp;
 import java.io.File;
+import java.nio.Buffer;
+import java.util.Arrays;
 import java.util.HashMap;
 
 /**
@@ -47,6 +51,28 @@ public class Main {
     private void init(){
 
         frame = new Frame();
+        frame.addKeyListener(new KeyListener() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+
+            }
+
+            @Override
+            public void keyPressed(KeyEvent e) {
+
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                if(e.getKeyCode() == KeyEvent.VK_I) {
+                    try {
+                        ImageIO.write(webcam.getImage(), "PNG", File.createTempFile("yeet", "v2_NEO.png"));
+                    }catch(Exception ex){
+                        ex.printStackTrace();
+                    }
+                }
+            }
+        });
 
         try {
             webcam = Webcam.getWebcams().get(0);
@@ -58,7 +84,7 @@ public class Main {
             e.printStackTrace();
         }
 
-        reader = new MultiFormatOneDReader(null);
+        reader = new MultiFormatOneDReader(new HashMap(){{put(DecodeHintType.TRY_HARDER, Boolean.TRUE);}});
     }
 
     private void run(){
@@ -137,8 +163,17 @@ public class Main {
         g.drawRect(100 + (int)(50 * Math.sin(time / 10f)), 100 + (int)(50 * Math.cos(time / 10f)), 20, 20);
 
         BufferedImage img = webcam.getImage();
+        BufferedImage orig = img;
+        try {
+//            img = ImageIO.read(new File("C:\\Users\\Team871\\Pictures\\bar.png"));
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+
+        img = doFiltering(img);
+
         //System.out.println(img.getWidth() + " " + img.getHeight());
-        g.drawImage(img, camRect.x, camRect.y, camRect.width, camRect.height, null);
+        g.drawImage(orig, camRect.x, camRect.y, camRect.width, camRect.height, null);
         g.setColor(Color.WHITE);
         g.drawString(String.format("%.1f fps", webcam.getFPS()), camRect.x + 2, camRect.y + camRect.height - 2);
 
@@ -156,6 +191,14 @@ public class Main {
             BinaryBitmap bbm = new BinaryBitmap(new HybridBinarizer(new BufferedImageLuminanceSource(img)));
 
             Result r = reader.decode(bbm/*, new HashMap(){{put(DecodeHintType.TRY_HARDER, Boolean.TRUE);}}*/);
+
+            g.setStroke(new BasicStroke(2f));
+            ResultPoint[] points = r.getResultPoints();
+            for(int i = 0; i < points.length; i++){
+                ResultPoint th = points[i];
+                ResultPoint next = (i == points.length - 1) ? points[0] : points[i+1];
+                g.drawLine((int)th.getX(), (int)th.getY(), (int)next.getX(), (int)next.getY());
+            }
 
             barcode = r.getText();
         } catch (NotFoundException e) {
@@ -205,15 +248,19 @@ public class Main {
     private BufferedImage doFiltering(BufferedImage src){
         BufferedImage out = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_RGB);
 
+
+        RescaleOp rescale = new RescaleOp(2.0f,20.0f, null);
+        out = rescale.filter(src,null);
+
         for(int x = 0; x < src.getWidth(); x++){
             for(int y = 0; y < src.getHeight(); y++){
-                int rgb = src.getRGB(x, y);
+                int rgb = out.getRGB(x, y);
                 int r = (rgb >> 16) & 0x000000FF;
                 int g = (rgb >>8 ) & 0x000000FF;
                 int b = (rgb) & 0x000000FF;
                 float[] hsv = new float[3];
                 Color.RGBtoHSB(r, g, b, hsv);
-                out.setRGB(x, y, Color.HSBtoRGB(0, 0, hsv[2] * hsv[2]));
+                out.setRGB(x, y, Color.HSBtoRGB(0, 0, (float)scaleValue(hsv[2])));
 //                if(hsv[2] < 0.5){
 //                    out.setRGB(x, y, Color.HSBtoRGB(0, 0, 0));
 //                }else if(hsv[2] < 0.8){
@@ -224,10 +271,42 @@ public class Main {
             }
         }
 
-        //RescaleOp rescale = new RescaleOp(1.1f,20.0f, null);
-        //out = rescale.filter(out,null);
 
         return out;
+    }
+
+    double scaleValue(double in){
+//        double out = (Math.pow(2*in - 1 + 0.1, 1/1.32) + 1) / 2.0;
+
+        double out = 0;
+        if(in < 0.75){
+            out = 0;
+        }else{
+            out = 1;
+        }
+
+        if(out < 0) out = 0;
+        if(out > 1) out = 1;
+
+        return out;
+    }
+
+    BufferedImage flip(BufferedImage img){
+        AffineTransform at = new AffineTransform();
+        at.concatenate(AffineTransform.getScaleInstance(-1, 1));
+        at.concatenate(AffineTransform.getTranslateInstance(-img.getWidth(), 0));
+        return createTransformed(img, at);
+    }
+
+    private BufferedImage createTransformed(BufferedImage image, AffineTransform at){
+        BufferedImage newImage = new BufferedImage(
+                image.getWidth(), image.getHeight(),
+                BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = newImage.createGraphics();
+        g.transform(at);
+        g.drawImage(image, 0, 0, null);
+        g.dispose();
+        return newImage;
     }
 
 }

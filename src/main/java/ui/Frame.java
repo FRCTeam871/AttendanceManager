@@ -2,6 +2,7 @@ package ui;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.KeyListener;
 
 public class Frame {
 
@@ -15,7 +16,7 @@ public class Frame {
 
     private void init(){
         Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
-        dim = new Dimension(800, 600);
+        dim = new Dimension(1200, 800);
         frame = new JFrame("Attendance UI");
         panel = new JPanel();
         panel.setPreferredSize(dim);
@@ -37,6 +38,10 @@ public class Frame {
 
     public void paint(){
         canvas.paint(canvas.getGraphics());
+    }
+
+    public void addKeyListener(KeyListener l){
+        canvas.addKeyListener(l);
     }
 
 }
