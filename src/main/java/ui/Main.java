@@ -6,6 +6,8 @@ import com.google.zxing.*;
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.oned.MultiFormatOneDReader;
+import ui.imageprovider.ImageProvider;
+import ui.imageprovider.WebcamImageProvider;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -16,8 +18,6 @@ import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.RescaleOp;
 import java.io.File;
-import java.nio.Buffer;
-import java.util.Arrays;
 import java.util.HashMap;
 
 /**
@@ -34,7 +34,7 @@ public class Main {
 
     private int time = 0;
 
-    Webcam webcam;
+    ImageProvider imageProvider;
     MultiFormatOneDReader reader;
 
     String lastBarcode = "";
@@ -66,7 +66,7 @@ public class Main {
             public void keyReleased(KeyEvent e) {
                 if(e.getKeyCode() == KeyEvent.VK_I) {
                     try {
-                        ImageIO.write(webcam.getImage(), "PNG", File.createTempFile("yeet", "v2_NEO.png"));
+                        ImageIO.write(imageProvider.getImage(), "PNG", File.createTempFile("yeet", "v2_NEO.png"));
                     }catch(Exception ex){
                         ex.printStackTrace();
                     }
@@ -75,11 +75,13 @@ public class Main {
         });
 
         try {
-            webcam = Webcam.getWebcams().get(0);
+            Webcam webcam = Webcam.getWebcams().get(0);
 //            webcam.setCustomViewSizes(new Dimension[]{new Dimension(1280,720)});
 //            webcam.setViewSize(new Dimension(1280,720));
             webcam.setViewSize(WebcamResolution.VGA.getSize());
             webcam.open();
+
+            imageProvider = new WebcamImageProvider(webcam);
         }catch(Exception e){
             e.printStackTrace();
         }
@@ -162,7 +164,7 @@ public class Main {
         g.setColor(Color.BLUE);
         g.drawRect(100 + (int)(50 * Math.sin(time / 10f)), 100 + (int)(50 * Math.cos(time / 10f)), 20, 20);
 
-        BufferedImage img = webcam.getImage();
+        BufferedImage img = imageProvider.getImage(); //TODO: check imageProvider.isAvailable();
         BufferedImage orig = img;
         try {
 //            img = ImageIO.read(new File("C:\\Users\\Team871\\Pictures\\bar.png"));
@@ -175,7 +177,7 @@ public class Main {
         //System.out.println(img.getWidth() + " " + img.getHeight());
         g.drawImage(orig, camRect.x, camRect.y, camRect.width, camRect.height, null);
         g.setColor(Color.WHITE);
-        g.drawString(String.format("%.1f fps", webcam.getFPS()), camRect.x + 2, camRect.y + camRect.height - 2);
+        //g.drawString(String.format("%.1f fps", webcam.getFPS()), camRect.x + 2, camRect.y + camRect.height - 2); //TODO: reimplement a better way to do this
 
 
         Rectangle infoRect = new Rectangle((int)(dim.width - dim.width * 0.5 - 20), 20, (int)(dim.width * 0.5), (int)(dim.height * 0.4));
