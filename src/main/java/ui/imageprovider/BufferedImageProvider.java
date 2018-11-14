@@ -19,4 +19,10 @@ public class BufferedImageProvider implements ImageProvider{
     public boolean isAvailable() {
         return true;
     }
+
+    @Override
+    public String getInfo() {
+        return img.toString();
+    }
+
 }

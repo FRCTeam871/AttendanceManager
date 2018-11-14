@@ -44,4 +44,8 @@ public class Frame {
         canvas.addKeyListener(l);
     }
 
+    public void setTitle(String title){
+        frame.setTitle(title);
+    }
+
 }

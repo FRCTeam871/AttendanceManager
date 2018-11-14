@@ -23,4 +23,9 @@ public class WebcamImageProvider implements ImageProvider {
         return webcam.isOpen();
     }
 
+    @Override
+    public String getInfo(){
+        return String.format("%.1f fps", webcam.getFPS());
+    }
+
 }

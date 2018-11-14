@@ -6,6 +6,9 @@ import com.google.zxing.*;
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.oned.MultiFormatOneDReader;
+import com.google.zxing.oned.OneDReader;
+import sensing.Sense;
+import ui.imageprovider.FileImageProvider;
 import ui.imageprovider.ImageProvider;
 import ui.imageprovider.WebcamImageProvider;
 
@@ -35,9 +38,7 @@ public class Main {
     private int time = 0;
 
     ImageProvider imageProvider;
-    MultiFormatOneDReader reader;
-
-    String lastBarcode = "";
+    Sense barcodeSensor;
 
     public static void main(String[] args){
         new Main();
@@ -86,7 +87,17 @@ public class Main {
             e.printStackTrace();
         }
 
-        reader = new MultiFormatOneDReader(new HashMap(){{put(DecodeHintType.TRY_HARDER, Boolean.TRUE);}});
+//        try {
+//            imageProvider = new FileImageProvider(new File("C:\\barcode.png"));
+//        }catch(Exception e){
+//            e.printStackTrace();
+//        }
+
+        OneDReader reader = new MultiFormatOneDReader(new HashMap(){{put(DecodeHintType.TRY_HARDER, Boolean.TRUE);}});
+        barcodeSensor = new Sense(reader);
+
+        barcodeSensor.addListener(r -> System.out.println(r.getText()));
+
     }
 
     private void run(){
@@ -137,12 +148,21 @@ public class Main {
                 tps = ticks;
                 frames = 0;
                 ticks = 0;
+
+                frame.setTitle("Attendance UI | " + fps + " FPS " + tps + " TPS");
             }
 
         }
     }
 
     private void tick() {
+
+//        if(time % 30 == 0){ // update every 30 ticks (twice per second)
+//            BufferedImage img = imageProvider.getImage();
+//            img = doFiltering(img);
+//            barcodeSensor.update(img);
+//        }
+
         time++;
     }
 
@@ -164,20 +184,20 @@ public class Main {
         g.setColor(Color.BLUE);
         g.drawRect(100 + (int)(50 * Math.sin(time / 10f)), 100 + (int)(50 * Math.cos(time / 10f)), 20, 20);
 
+
         BufferedImage img = imageProvider.getImage(); //TODO: check imageProvider.isAvailable();
-        BufferedImage orig = img;
-        try {
-//            img = ImageIO.read(new File("C:\\Users\\Team871\\Pictures\\bar.png"));
-        }catch(Exception e){
-            e.printStackTrace();
-        }
 
-        img = doFiltering(img);
 
-        //System.out.println(img.getWidth() + " " + img.getHeight());
-        g.drawImage(orig, camRect.x, camRect.y, camRect.width, camRect.height, null);
-        g.setColor(Color.WHITE);
-        //g.drawString(String.format("%.1f fps", webcam.getFPS()), camRect.x + 2, camRect.y + camRect.height - 2); //TODO: reimplement a better way to do this
+
+//        System.out.println(img.getWidth() + " " + img.getHeight());
+//        long start = System.currentTimeMillis();
+        g.drawImage(img, camRect.x, camRect.y, camRect.width, camRect.height, null); //TODO: why does this call take so long when using webcam? (scaling?)
+//        System.out.println("took " + (System.currentTimeMillis() - start));
+
+        g.setColor(new Color(0.5f, 0.5f, 0.5f, 1f));
+        String str = imageProvider.getInfo();
+        g.drawString(str, camRect.x + 2, camRect.y + camRect.height - 2); //TODO: reimplement a better way to do this
+
 
 
         Rectangle infoRect = new Rectangle((int)(dim.width - dim.width * 0.5 - 20), 20, (int)(dim.width * 0.5), (int)(dim.height * 0.4));
@@ -187,34 +207,27 @@ public class Main {
         g.setColor(Color.WHITE);
         g.fillRect(infoRect.x, infoRect.y, infoRect.width, infoRect.height);
 
-        String barcode = null;
 
-        try {
-            BinaryBitmap bbm = new BinaryBitmap(new HybridBinarizer(new BufferedImageLuminanceSource(img)));
 
-            Result r = reader.decode(bbm/*, new HashMap(){{put(DecodeHintType.TRY_HARDER, Boolean.TRUE);}}*/);
 
+        Result r = barcodeSensor.getCachedResult();
+
+        if(r != null) {
             g.setStroke(new BasicStroke(2f));
             ResultPoint[] points = r.getResultPoints();
-            for(int i = 0; i < points.length; i++){
+            for (int i = 0; i < points.length; i++) {
                 ResultPoint th = points[i];
-                ResultPoint next = (i == points.length - 1) ? points[0] : points[i+1];
-                g.drawLine((int)th.getX(), (int)th.getY(), (int)next.getX(), (int)next.getY());
+                ResultPoint next = (i == points.length - 1) ? points[0] : points[i + 1];
+                g.setColor(Color.GREEN);
+                g.drawLine((int) ((th.getX() / img.getWidth()) * camRect.width + camRect.x), (int) ((th.getY() / img.getHeight()) * camRect.height + camRect.y), (int) ((next.getX() / img.getWidth()) * camRect.width + camRect.x), (int) ((next.getY() / img.getHeight()) * camRect.height + camRect.y));
             }
-
-            barcode = r.getText();
-        } catch (NotFoundException e) {
-
-        } catch (FormatException e) {
-            e.printStackTrace();
         }
 
-        if(barcode != null){
-            lastBarcode = barcode;
-        }
+
 
         g.setColor(Color.BLACK);
-        g.drawString(lastBarcode, infoRect.x + 10, infoRect.y + 20);
+        g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
+        g.drawString("Scanned: " + (r == null ? "???" : r.getText()), infoRect.x + 10, infoRect.y + 32);
 
         Rectangle tableRect = new Rectangle(20, (int)(dim.height * 0.4 + 20 + 20), (int)(dim.width - 40), (int)((dim.height) - (dim.height * 0.4 + 20 + 20) - 20));
         g.setColor(Color.LIGHT_GRAY);

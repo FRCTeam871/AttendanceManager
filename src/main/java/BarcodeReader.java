@@ -16,7 +16,9 @@ public class BarcodeReader {
     public static void main(String[] args) {
         reader = new MultiFormatOneDReader(null);
         try {
-            Result r = reader.decode(new BinaryBitmap(new HybridBinarizer(new BufferedImageLuminanceSource(ImageIO.read(new File(args[0]))))));
+            File f = new File(args[0]);
+            System.out.println(f.getAbsolutePath() + " " + f.exists());
+            Result r = reader.decode(new BinaryBitmap(new HybridBinarizer(new BufferedImageLuminanceSource(ImageIO.read(f)))));
             System.out.println(r.toString());
         } catch (NotFoundException e) {
             e.printStackTrace();

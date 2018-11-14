@@ -6,5 +6,6 @@ public interface ImageProvider {
 
     BufferedImage getImage();
     boolean isAvailable();
+    String getInfo();
 
 }
