@@ -3,12 +3,16 @@ package ui;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyListener;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowFocusListener;
 
-public class Frame {
+public class Frame implements WindowFocusListener {
 
     JFrame frame;
     JPanel panel;
     UICanvas canvas;
+
+    boolean hasFocus = false;
 
     public Frame(){
         init();
@@ -28,8 +32,30 @@ public class Frame {
         frame.getContentPane().add(canvas);
         //frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
         //frame.setUndecorated(true);
+        frame.setLocationRelativeTo(null);
         frame.setVisible(true);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        frame.addWindowFocusListener(this);
+
+        Point loc = frame.getLocationOnScreen();
+        System.out.println(loc);
+
+        Dimension dim2 = dim;
+//        new Thread(() -> {
+//            try{
+//                Thread.sleep(5000);
+//                Robot r = new Robot();
+//                r.mouseMove(loc.x + dim2.width/2, loc.y + dim2.height/2);
+//                Thread.sleep(250);
+//                r.mousePress(0);
+//                Thread.sleep(500);
+//                r.mouseRelease(0);
+//            }catch(Exception e){
+//                e.printStackTrace();
+//            }
+//        }).start();
+
     }
 
     public UICanvas getCanvas(){
@@ -48,4 +74,22 @@ public class Frame {
         frame.setTitle(title);
     }
 
+    @Override
+    public void windowGainedFocus(WindowEvent e) {
+        if(e.getNewState() == 0){
+            hasFocus = false;
+        }
+
+        System.out.println("focus " + e.getNewState());
+    }
+
+    @Override
+    public void windowLostFocus(WindowEvent e) {
+        hasFocus = true;
+        System.out.println("gain");
+    }
+
+    public boolean hasFocus(){
+        return hasFocus;
+    }
 }

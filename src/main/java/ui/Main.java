@@ -3,12 +3,12 @@ package ui;
 import com.github.sarxos.webcam.Webcam;
 import com.github.sarxos.webcam.WebcamResolution;
 import com.google.zxing.*;
-import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
-import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.oned.MultiFormatOneDReader;
 import com.google.zxing.oned.OneDReader;
-import sensing.Sense;
-import ui.imageprovider.FileImageProvider;
+import sensing.BarcodeResult;
+import sensing.GenericSense;
+import sensing.ImageSense;
+import sensing.KeyboardSense;
 import ui.imageprovider.ImageProvider;
 import ui.imageprovider.WebcamImageProvider;
 
@@ -38,7 +38,10 @@ public class Main {
     private int time = 0;
 
     ImageProvider imageProvider;
-    Sense barcodeSensor;
+    GenericSense barcodeSensor;
+
+    int flashTimer = 0;
+    int flashTimerMax = 30;
 
     public static void main(String[] args){
         new Main();
@@ -76,11 +79,11 @@ public class Main {
         });
 
         try {
-            Webcam webcam = Webcam.getWebcams().get(0);
+            Webcam webcam = Webcam.getWebcams().get(1);
 //            webcam.setCustomViewSizes(new Dimension[]{new Dimension(1280,720)});
 //            webcam.setViewSize(new Dimension(1280,720));
             webcam.setViewSize(WebcamResolution.VGA.getSize());
-            webcam.open();
+            webcam.open(true);
 
             imageProvider = new WebcamImageProvider(webcam);
         }catch(Exception e){
@@ -93,10 +96,14 @@ public class Main {
 //            e.printStackTrace();
 //        }
 
-        OneDReader reader = new MultiFormatOneDReader(new HashMap(){{put(DecodeHintType.TRY_HARDER, Boolean.TRUE);}});
-        barcodeSensor = new Sense(reader);
+//        OneDReader reader = new MultiFormatOneDReader(new HashMap(){{put(DecodeHintType.TRY_HARDER, Boolean.TRUE);}});
+//        barcodeSensor = new ImageSense(reader, imageProvider);
+
+        barcodeSensor = new KeyboardSense();
+        frame.addKeyListener((KeyboardSense)barcodeSensor);
 
         barcodeSensor.addListener(r -> System.out.println(r.getText()));
+        barcodeSensor.addListener(r -> flashTimer = flashTimerMax);
 
     }
 
@@ -163,6 +170,10 @@ public class Main {
 //            barcodeSensor.update(img);
 //        }
 
+        if(flashTimer > 0) flashTimer--;
+
+        barcodeSensor.update();
+
         time++;
     }
 
@@ -171,7 +182,20 @@ public class Main {
         Graphics2D g = frame.getCanvas().getRenderGraphics();
         g.clearRect(0, 0, frame.getCanvas().getDimensions().width, frame.getCanvas().getDimensions().height);
 
-        g.setColor(Color.DARK_GRAY);
+        if(frame.hasFocus()){
+            g.setColor(Color.RED);
+        }else if(flashTimer > 0){
+            Color c1 = Color.DARK_GRAY;
+            Color c2 = Color.GREEN;
+            float thru = flashTimer / (float)flashTimerMax;
+            int r = (int)(c1.getRed() + thru * (c2.getRed() - c1.getRed()));
+            int gr = (int)(c1.getGreen() + thru * (c2.getGreen() - c1.getGreen()));
+            int b = (int)(c1.getBlue() + thru * (c2.getBlue() - c1.getBlue()));
+            Color lerp = new Color(r, gr, b);
+            g.setColor(lerp);
+        }else {
+            g.setColor(Color.DARK_GRAY);
+        }
         g.fillRect(0, 0, frame.getCanvas().getDimensions().width, frame.getCanvas().getDimensions().height);
 
         Dimension dim = frame.getCanvas().getDimensions();
@@ -187,16 +211,14 @@ public class Main {
 
         BufferedImage img = imageProvider.getImage(); //TODO: check imageProvider.isAvailable();
 
-
-
 //        System.out.println(img.getWidth() + " " + img.getHeight());
-//        long start = System.currentTimeMillis();
-        g.drawImage(img, camRect.x, camRect.y, camRect.width, camRect.height, null); //TODO: why does this call take so long when using webcam? (scaling?)
-//        System.out.println("took " + (System.currentTimeMillis() - start));
+        long start = System.currentTimeMillis();
+        g.drawImage(img, camRect.x, camRect.y, null); //TODO: why does this call take so long when using webcam? (scaling?)
+//        System.out.println("took " + (System.currentTimeMillis() - start) + " " + img.getType() + " " + img.getClass());
 
         g.setColor(new Color(0.5f, 0.5f, 0.5f, 1f));
         String str = imageProvider.getInfo();
-        g.drawString(str, camRect.x + 2, camRect.y + camRect.height - 2); //TODO: reimplement a better way to do this
+        g.drawString(str, camRect.x + 2, camRect.y + camRect.height - 2);
 
 
 
@@ -210,18 +232,19 @@ public class Main {
 
 
 
-        Result r = barcodeSensor.getCachedResult();
+        BarcodeResult r = barcodeSensor.getCachedResult();
 
-        if(r != null) {
-            g.setStroke(new BasicStroke(2f));
-            ResultPoint[] points = r.getResultPoints();
-            for (int i = 0; i < points.length; i++) {
-                ResultPoint th = points[i];
-                ResultPoint next = (i == points.length - 1) ? points[0] : points[i + 1];
-                g.setColor(Color.GREEN);
-                g.drawLine((int) ((th.getX() / img.getWidth()) * camRect.width + camRect.x), (int) ((th.getY() / img.getHeight()) * camRect.height + camRect.y), (int) ((next.getX() / img.getWidth()) * camRect.width + camRect.x), (int) ((next.getY() / img.getHeight()) * camRect.height + camRect.y));
-            }
-        }
+        //TODO: reimplement
+//        if(r != null) {
+//            g.setStroke(new BasicStroke(2f));
+//            ResultPoint[] points = r.getResultPoints();
+//            for (int i = 0; i < points.length; i++) {
+//                ResultPoint th = points[i];
+//                ResultPoint next = (i == points.length - 1) ? points[0] : points[i + 1];
+//                g.setColor(Color.GREEN);
+//                g.drawLine((int) ((th.getX() / img.getWidth()) * camRect.width + camRect.x), (int) ((th.getY() / img.getHeight()) * camRect.height + camRect.y), (int) ((next.getX() / img.getWidth()) * camRect.width + camRect.x), (int) ((next.getY() / img.getHeight()) * camRect.height + camRect.y));
+//            }
+//        }
 
 
 
