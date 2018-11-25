@@ -2,33 +2,30 @@ package ui;
 
 import com.github.sarxos.webcam.Webcam;
 import com.github.sarxos.webcam.WebcamResolution;
-import com.google.zxing.*;
-import com.google.zxing.oned.MultiFormatOneDReader;
-import com.google.zxing.oned.OneDReader;
 import sensing.BarcodeResult;
 import sensing.GenericSense;
-import sensing.ImageSense;
-import sensing.KeyboardSense;
+import sensing.JPOSSense;
+import sensing.ResultListener;
 import ui.imageprovider.ImageProvider;
 import ui.imageprovider.WebcamImageProvider;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.Dimension;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.RescaleOp;
 import java.io.File;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author Dave
  * i know this code is terrible
  * once i get a prototype working ill make it good
  */
-public class Main {
+public class Main implements ResultListener {
 
     Frame frame;
     private boolean running;
@@ -42,6 +39,11 @@ public class Main {
 
     int flashTimer = 0;
     int flashTimerMax = 30;
+
+    BufferedImage lastWebcam;
+
+    BarcodeResult lastResult;
+    String lastSID = "???";
 
     public static void main(String[] args){
         new Main();
@@ -78,17 +80,19 @@ public class Main {
             }
         });
 
-        try {
-            Webcam webcam = Webcam.getWebcams().get(1);
-//            webcam.setCustomViewSizes(new Dimension[]{new Dimension(1280,720)});
-//            webcam.setViewSize(new Dimension(1280,720));
-            webcam.setViewSize(WebcamResolution.VGA.getSize());
-            webcam.open(true);
+        new Thread(() -> {
+            try {
+                Webcam webcam = Webcam.getWebcams().get(0);
+//              webcam.setCustomViewSizes(new Dimension[]{new Dimension(1280,720)});
+//              webcam.setViewSize(new Dimension(1280,720));
+                webcam.setViewSize(WebcamResolution.QVGA.getSize());
+                webcam.open(true);
 
-            imageProvider = new WebcamImageProvider(webcam);
-        }catch(Exception e){
-            e.printStackTrace();
-        }
+                imageProvider = new WebcamImageProvider(webcam);
+            }catch(Exception e){
+                e.printStackTrace();
+            }
+        }).start();
 
 //        try {
 //            imageProvider = new FileImageProvider(new File("C:\\barcode.png"));
@@ -99,11 +103,12 @@ public class Main {
 //        OneDReader reader = new MultiFormatOneDReader(new HashMap(){{put(DecodeHintType.TRY_HARDER, Boolean.TRUE);}});
 //        barcodeSensor = new ImageSense(reader, imageProvider);
 
-        barcodeSensor = new KeyboardSense();
-        frame.addKeyListener((KeyboardSense)barcodeSensor);
+//        barcodeSensor = new KeyboardSense();
+//        frame.addKeyListener((KeyboardSense)barcodeSensor);
 
-        barcodeSensor.addListener(r -> System.out.println(r.getText()));
-        barcodeSensor.addListener(r -> flashTimer = flashTimerMax);
+        barcodeSensor = new JPOSSense();
+
+        barcodeSensor.addListener(this);
 
     }
 
@@ -170,6 +175,15 @@ public class Main {
 //            barcodeSensor.update(img);
 //        }
 
+        if(time % 5 == 0 && imageProvider != null && imageProvider.isAvailable()){
+            BufferedImage bi = imageProvider.getImage();
+            BufferedImage biNew = new BufferedImage(bi.getWidth(null), bi.getHeight(null), BufferedImage.TYPE_INT_RGB);
+            Graphics g = biNew.createGraphics();
+            g.drawImage(bi, 0, 0, null);
+            g.dispose();
+            lastWebcam = biNew;
+        }
+
         if(flashTimer > 0) flashTimer--;
 
         barcodeSensor.update();
@@ -208,18 +222,25 @@ public class Main {
         g.setColor(Color.BLUE);
         g.drawRect(100 + (int)(50 * Math.sin(time / 10f)), 100 + (int)(50 * Math.cos(time / 10f)), 20, 20);
 
-
-        BufferedImage img = imageProvider.getImage(); //TODO: check imageProvider.isAvailable();
+        if(lastWebcam != null) {
 
 //        System.out.println(img.getWidth() + " " + img.getHeight());
-        long start = System.currentTimeMillis();
-        g.drawImage(img, camRect.x, camRect.y, null); //TODO: why does this call take so long when using webcam? (scaling?)
+            long start = System.currentTimeMillis();
+            g.drawImage(lastWebcam, camRect.x, camRect.y, camRect.width, camRect.height, null); //TODO: why does this call take so long when using webcam? (scaling?)
 //        System.out.println("took " + (System.currentTimeMillis() - start) + " " + img.getType() + " " + img.getClass());
 
-        g.setColor(new Color(0.5f, 0.5f, 0.5f, 1f));
-        String str = imageProvider.getInfo();
-        g.drawString(str, camRect.x + 2, camRect.y + camRect.height - 2);
-
+            g.setColor(new Color(0.5f, 0.5f, 0.5f, 1f));
+            String str = imageProvider.getInfo();
+            g.drawString(str, camRect.x + 2, camRect.y + camRect.height - 2);
+        }else{
+            g.setColor(Color.DARK_GRAY);
+            g.fill(camRect);
+            g.setColor(Color.LIGHT_GRAY);
+            float thru = (System.currentTimeMillis() % 1000) / 1000f;
+            String s = "Starting Webcam" + (thru >= 0.25f ? "." : " ") + (thru >= 0.5f ? "." : " ") + (thru >= 0.75f ? "." : " ");
+            g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
+            g.drawString(s, camRect.x + camRect.width/2 - g.getFontMetrics().stringWidth(s)/2, camRect.y + camRect.height/2);
+        }
 
 
         Rectangle infoRect = new Rectangle((int)(dim.width - dim.width * 0.5 - 20), 20, (int)(dim.width * 0.5), (int)(dim.height * 0.4));
@@ -228,11 +249,6 @@ public class Main {
         g.drawRect(infoRect.x, infoRect.y, infoRect.width, infoRect.height);
         g.setColor(Color.WHITE);
         g.fillRect(infoRect.x, infoRect.y, infoRect.width, infoRect.height);
-
-
-
-
-        BarcodeResult r = barcodeSensor.getCachedResult();
 
         //TODO: reimplement
 //        if(r != null) {
@@ -250,7 +266,15 @@ public class Main {
 
         g.setColor(Color.BLACK);
         g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
-        g.drawString("Scanned: " + (r == null ? "???" : r.getText()), infoRect.x + 10, infoRect.y + 32);
+
+        List<String> lines = new ArrayList<String>();
+        lines.add("Scanned: " + (lastResult == null ? "???" : lastResult.getText()));
+        lines.add("SID: " + lastSID);
+
+        for(int i = 0; i < lines.size(); i++){
+            g.drawString(lines.get(i), infoRect.x + 10, infoRect.y + 32 + 32*i);
+        }
+
 
         Rectangle tableRect = new Rectangle(20, (int)(dim.height * 0.4 + 20 + 20), (int)(dim.width - 40), (int)((dim.height) - (dim.height * 0.4 + 20 + 20) - 20));
         g.setColor(Color.LIGHT_GRAY);
@@ -345,6 +369,26 @@ public class Main {
         g.drawImage(image, 0, 0, null);
         g.dispose();
         return newImage;
+    }
+
+    @Override
+    public void changed(BarcodeResult result) {
+        System.out.println("Scanned: " + result.getText());
+        lastResult = result;
+        String sid = result.getText().replaceFirst("^0+(?!$)", ""); // remove leading zeros;
+        if(isValidSID(sid)) {
+            lastSID = sid;
+            flashTimer = flashTimerMax;
+        }else{
+            lastSID = "INVALID";
+        }
+    }
+
+    boolean isValidSID(String test){
+        if(!test.matches("^\\d+(\\d+)?$")) return false; //is numeric
+        if(!(test.length() == 5 || test.length() == 6)) return false; // must be 5 or 6 digits
+
+        return true;
     }
 
 }

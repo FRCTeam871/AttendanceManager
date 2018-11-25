@@ -7,6 +7,20 @@ sourceCompatibility = 1.8
 
 repositories {
     mavenCentral()
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs= ["src/main/java"]
+        }
+        resources {
+            srcDirs= ["src/main/resources"]
+        }
+    }
 }
 
 dependencies {
@@ -20,6 +34,14 @@ dependencies {
             'com.google.zxing:core:3.3.3',
             'com.google.zxing:javase:3.3.3',
             'com.github.sarxos:webcam-capture:0.3.10',
-            'org.javapos:javapos:1.14.0'
+            'org.javapos:javapos:1.14.0',
+            'xerces:xercesImpl:2.8.0'
+    //i don't think these libs (com.motorola.jpos) are on maven
+    //i got them from the zebra scanner sdk
+    compile name: 'JPosService'
+    compile name: 'JPosServiceJni'
+    compile name: 'JPosServiceScale'
+    compile name: 'JPosServiceScanner'
+    
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }
