@@ -2,6 +2,15 @@ package ui;
 
 import com.github.sarxos.webcam.Webcam;
 import com.github.sarxos.webcam.WebcamResolution;
+import com.github.sarxos.webcam.log.WebcamLogConfigurator;
+import com.sun.javafx.scene.control.skin.TableHeaderRow;
+import org.apache.poi.sl.draw.DrawFactory;
+import org.apache.poi.sl.usermodel.MasterSheet;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.XSSFDrawing;
+import org.apache.xmlbeans.impl.common.IOUtil;
 import sensing.BarcodeResult;
 import sensing.GenericSense;
 import sensing.JPOSSense;
@@ -10,22 +19,33 @@ import ui.imageprovider.ImageProvider;
 import ui.imageprovider.WebcamImageProvider;
 
 import javax.imageio.ImageIO;
+import javax.swing.*;
+import javax.swing.table.TableCellRenderer;
 import java.awt.*;
+import java.awt.Color;
+import java.awt.Font;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.RescaleOp;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 /**
  * @author Dave
  * i know this code is terrible
  * once i get a prototype working ill make it good
  */
-public class Main implements ResultListener {
+public class Main implements ResultListener, KeyListener, WindowListener {
 
     Frame frame;
     private boolean running;
@@ -45,11 +65,24 @@ public class Main implements ResultListener {
     BarcodeResult lastResult;
     String lastSID = "???";
 
+    SheetWrapper sheetWrapper;
+
     public static void main(String[] args){
         new Main();
     }
 
     private Main(){
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (UnsupportedLookAndFeelException e) {
+            e.printStackTrace();
+        }
         init();
         run();
     }
@@ -110,6 +143,11 @@ public class Main implements ResultListener {
 
         barcodeSensor.addListener(this);
 
+        sheetWrapper = new SheetWrapper(Main.class.getClassLoader().getResource("att.xlsx"));
+        frame.addMouseWheelListener(sheetWrapper);
+
+        frame.addKeyListener(this);
+        frame.addWindowListener(this);
     }
 
     private void run(){
@@ -188,10 +226,14 @@ public class Main implements ResultListener {
 
         barcodeSensor.update();
 
+        sheetWrapper.tick(time);
+
         time++;
     }
 
     private void render(){
+
+        int padding = 16;
 
         Graphics2D g = frame.getCanvas().getRenderGraphics();
         g.clearRect(0, 0, frame.getCanvas().getDimensions().width, frame.getCanvas().getDimensions().height);
@@ -214,7 +256,7 @@ public class Main implements ResultListener {
 
         Dimension dim = frame.getCanvas().getDimensions();
 
-        Rectangle camRect = new Rectangle(20, 20, (int)(dim.width * 0.4), (int)(dim.height * 0.4));
+        Rectangle camRect = new Rectangle(padding, padding, (int)(dim.width * 0.4), (int)(dim.height * 0.4));
         g.setColor(Color.LIGHT_GRAY);
         g.setStroke(new BasicStroke(8f));
         g.drawRect(camRect.x, camRect.y, camRect.width, camRect.height);
@@ -243,7 +285,7 @@ public class Main implements ResultListener {
         }
 
 
-        Rectangle infoRect = new Rectangle((int)(dim.width - dim.width * 0.5 - 20), 20, (int)(dim.width * 0.5), (int)(dim.height * 0.4));
+        Rectangle infoRect = new Rectangle((int)(dim.width - dim.width * 0.5 - padding), padding, (int)(dim.width * 0.5), (int)(dim.height * 0.4));
         g.setColor(Color.LIGHT_GRAY);
         g.setStroke(new BasicStroke(8f));
         g.drawRect(infoRect.x, infoRect.y, infoRect.width, infoRect.height);
@@ -276,7 +318,7 @@ public class Main implements ResultListener {
         }
 
 
-        Rectangle tableRect = new Rectangle(20, (int)(dim.height * 0.4 + 20 + 20), (int)(dim.width - 40), (int)((dim.height) - (dim.height * 0.4 + 20 + 20) - 20));
+        Rectangle tableRect = new Rectangle(padding, (int)(dim.height * 0.4 + padding + padding), (int)(dim.width - padding*2), (int)((dim.height) - (dim.height * 0.4 + padding + padding) - padding));
         g.setColor(Color.LIGHT_GRAY);
         g.setStroke(new BasicStroke(8f));
         g.drawRect(tableRect.x, tableRect.y, tableRect.width, tableRect.height);
@@ -289,22 +331,15 @@ public class Main implements ResultListener {
         g.setClip(tableRect);
         g.translate(tableRect.x, tableRect.y);
 
-        drawTable(g);
+        sheetWrapper.drawTable(g, tableRect.width, tableRect.height, time);
 
         g.setTransform(tr);
-
-
 
         frame.paint();
     }
 
     public int getTime() {
         return time;
-    }
-
-    private void drawTable(Graphics2D g){
-        g.setColor(Color.BLUE);
-        g.drawRect(10, 10, 20, 20);
     }
 
     private BufferedImage doFiltering(BufferedImage src){
@@ -378,7 +413,12 @@ public class Main implements ResultListener {
         String sid = result.getText().replaceFirst("^0+(?!$)", ""); // remove leading zeros;
         if(isValidSID(sid)) {
             lastSID = sid;
-            flashTimer = flashTimerMax;
+            if(!sheetWrapper.isPresent(sid)) {
+                sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
+                if(sheetWrapper.setPresent(sid, true)) {
+                    flashTimer = flashTimerMax;
+                }
+            }
         }else{
             lastSID = "INVALID";
         }
@@ -389,6 +429,88 @@ public class Main implements ResultListener {
         if(!(test.length() == 5 || test.length() == 6)) return false; // must be 5 or 6 digits
 
         return true;
+    }
+
+    void showSaveDialog(){
+        JFileChooser chooser = new JFileChooser();
+        chooser.setSelectedFile(sheetWrapper.getFile());
+        chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        chooser.setMultiSelectionEnabled(false);
+        chooser.showOpenDialog(frame.getCanvas());
+        File f = chooser.getSelectedFile();
+
+        boolean success = sheetWrapper.save(f);
+
+        if(success) {
+            JOptionPane.showMessageDialog(frame.getCanvas(), "Attendance saved.", frame.frame.getTitle(), JOptionPane.INFORMATION_MESSAGE);
+        }else{
+            JOptionPane.showMessageDialog(frame.getCanvas(), "Failed to save attendance (see console).", frame.frame.getTitle(), JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    @Override
+    public void keyTyped(KeyEvent e) {}
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        if(e.getKeyCode() == KeyEvent.VK_S && e.isControlDown()){
+//            System.out.println("Ctrl+S");
+            int result = JOptionPane.showConfirmDialog(frame.getCanvas(), "Do you want to save?", frame.frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+
+            if(result == JOptionPane.YES_OPTION) {
+                showSaveDialog();
+            }
+        }
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {}
+
+    @Override
+    public void windowOpened(WindowEvent e) {}
+
+    @Override
+    public void windowClosed(WindowEvent e) {}
+
+    @Override
+    public void windowIconified(WindowEvent e) {}
+
+    @Override
+    public void windowDeiconified(WindowEvent e) {}
+
+    @Override
+    public void windowActivated(WindowEvent e) {}
+
+    @Override
+    public void windowDeactivated(WindowEvent e) {}
+
+    @Override
+    public void windowClosing(WindowEvent e) {
+        if(sheetWrapper.hasUnsaved()){
+            int result = JOptionPane.showConfirmDialog(frame.getCanvas(), "You have unsaved changes!\nDo you want to save?", frame.frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+
+            switch(result){
+                case JOptionPane.YES_OPTION:
+                    showSaveDialog();
+                    int result2 = JOptionPane.showConfirmDialog(frame.getCanvas(), "Exit?", frame.frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+                    if(result2 == JOptionPane.YES_OPTION){
+                        exit(0);
+                    }
+                    break;
+                case JOptionPane.NO_OPTION:
+                    exit(0);
+                    break;
+                default: // cancel or x-out
+                    // don't do anything
+                    break;
+            }
+        }else{
+            exit(0);
+        }
+    }
+
+    public static void exit(int status){
+        System.exit(status);
     }
 
 }

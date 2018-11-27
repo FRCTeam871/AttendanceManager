@@ -2,9 +2,7 @@ package ui;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.KeyListener;
-import java.awt.event.WindowEvent;
-import java.awt.event.WindowFocusListener;
+import java.awt.event.*;
 
 public class Frame implements WindowFocusListener {
 
@@ -30,11 +28,11 @@ public class Frame implements WindowFocusListener {
         frame.pack();
         frame.remove(panel);
         frame.getContentPane().add(canvas);
-        //frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-        //frame.setUndecorated(true);
+//        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+//        frame.setUndecorated(true);
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
         frame.addWindowFocusListener(this);
 
@@ -68,6 +66,14 @@ public class Frame implements WindowFocusListener {
 
     public void addKeyListener(KeyListener l){
         canvas.addKeyListener(l);
+    }
+
+    public void addMouseWheelListener(MouseWheelListener l){
+        canvas.addMouseWheelListener(l);
+    }
+
+    public void addWindowListener(WindowListener l){
+        frame.addWindowListener(l);
     }
 
     public void setTitle(String title){
