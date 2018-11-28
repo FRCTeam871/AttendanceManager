@@ -54,18 +54,17 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
     private int time = 0;
 
-    ImageProvider imageProvider;
     GenericSense barcodeSensor;
 
     int flashTimer = 0;
     int flashTimerMax = 30;
 
-    BufferedImage lastWebcam;
-
     BarcodeResult lastResult;
     String lastSID = "???";
+    String lastName = "";
 
     SheetWrapper sheetWrapper;
+    private boolean enteringNewSID = false;
 
     public static void main(String[] args){
         new Main();
@@ -90,42 +89,20 @@ public class Main implements ResultListener, KeyListener, WindowListener {
     private void init(){
 
         frame = new Frame();
-        frame.addKeyListener(new KeyListener() {
-            @Override
-            public void keyTyped(KeyEvent e) {
 
-            }
-
-            @Override
-            public void keyPressed(KeyEvent e) {
-
-            }
-
-            @Override
-            public void keyReleased(KeyEvent e) {
-                if(e.getKeyCode() == KeyEvent.VK_I) {
-                    try {
-                        ImageIO.write(imageProvider.getImage(), "PNG", File.createTempFile("yeet", "v2_NEO.png"));
-                    }catch(Exception ex){
-                        ex.printStackTrace();
-                    }
-                }
-            }
-        });
-
-        new Thread(() -> {
-            try {
-                Webcam webcam = Webcam.getWebcams().get(0);
-//              webcam.setCustomViewSizes(new Dimension[]{new Dimension(1280,720)});
-//              webcam.setViewSize(new Dimension(1280,720));
-                webcam.setViewSize(WebcamResolution.QVGA.getSize());
-                webcam.open(true);
-
-                imageProvider = new WebcamImageProvider(webcam);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
-        }).start();
+//        new Thread(() -> {
+//            try {
+//                Webcam webcam = Webcam.getWebcams().get(0);
+////              webcam.setCustomViewSizes(new Dimension[]{new Dimension(1280,720)});
+////              webcam.setViewSize(new Dimension(1280,720));
+//                webcam.setViewSize(WebcamResolution.QVGA.getSize());
+//                webcam.open(true);
+//
+//                imageProvider = new WebcamImageProvider(webcam);
+//            }catch(Exception e){
+//                e.printStackTrace();
+//            }
+//        }).start();
 
 //        try {
 //            imageProvider = new FileImageProvider(new File("C:\\barcode.png"));
@@ -213,15 +190,6 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 //            barcodeSensor.update(img);
 //        }
 
-        if(time % 5 == 0 && imageProvider != null && imageProvider.isAvailable()){
-            BufferedImage bi = imageProvider.getImage();
-            BufferedImage biNew = new BufferedImage(bi.getWidth(null), bi.getHeight(null), BufferedImage.TYPE_INT_RGB);
-            Graphics g = biNew.createGraphics();
-            g.drawImage(bi, 0, 0, null);
-            g.dispose();
-            lastWebcam = biNew;
-        }
-
         if(flashTimer > 0) flashTimer--;
 
         barcodeSensor.update();
@@ -266,25 +234,10 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         g.setColor(Color.BLUE);
         g.drawRect(100 + (int)(50 * Math.sin(time / 10f)), 100 + (int)(50 * Math.cos(time / 10f)), 20, 20);
 
-        if(lastWebcam != null) {
-
-//        System.out.println(img.getWidth() + " " + img.getHeight());
-//            long start = System.currentTimeMillis();
-            g.drawImage(lastWebcam, camRect.x, camRect.y, camRect.width, camRect.height, null); //TODO: why does this call take so long when using webcam? (scaling?)
-//        System.out.println("took " + (System.currentTimeMillis() - start) + " " + img.getType() + " " + img.getClass());
-
-            g.setColor(new Color(0.5f, 0.5f, 0.5f, 1f));
-            String str = imageProvider.getInfo();
-            g.drawString(str, camRect.x + 2, camRect.y + camRect.height - 2);
-        }else{
-            g.setColor(Color.DARK_GRAY);
-            g.fill(camRect);
-            g.setColor(Color.LIGHT_GRAY);
-            float thru = (System.currentTimeMillis() % 1000) / 1000f;
-            String s = "Starting Webcam" + (thru >= 0.25f ? "." : " ") + (thru >= 0.5f ? "." : " ") + (thru >= 0.75f ? "." : " ");
-            g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
-            g.drawString(s, camRect.x + camRect.width/2 - g.getFontMetrics().stringWidth(s)/2, camRect.y + camRect.height/2);
-        }
+        AffineTransform tr = g.getTransform();
+        g.translate(camRect.x, camRect.y);
+        barcodeSensor.renderPreview(g, camRect.width, camRect.height);
+        g.setTransform(tr);
 
 
         Rectangle infoRect = new Rectangle((int)(dim.width - dim.width * 0.5 - padding), padding, (int)(dim.width * 0.5), (int)(dim.height * 0.4));
@@ -300,6 +253,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         List<String> lines = new ArrayList<String>();
         lines.add("Scanned: " + (lastResult == null ? "???" : lastResult.getText()));
         lines.add("SID: " + lastSID);
+        if(!lastSID.equalsIgnoreCase("???")) lines.add("Name: " + lastName);
 
         for(int i = 0; i < lines.size(); i++){
             g.drawString(lines.get(i), infoRect.x + 10, infoRect.y + 32 + 32*i);
@@ -314,7 +268,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
         g.setStroke(new BasicStroke(1f));
 
-        AffineTransform tr = g.getTransform();
+        tr = g.getTransform();
         g.setClip(tableRect);
         g.translate(tableRect.x, tableRect.y);
 
@@ -395,19 +349,66 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
     @Override
     public void changed(BarcodeResult result) {
+        if(enteringNewSID) return; //don't accept new scans if setting up new SID
+
         System.out.println("Scanned: " + result.getText());
         lastResult = result;
+        lastName = "...";
+
         String sid = result.getText().replaceFirst("^0+(?!$)", ""); // remove leading zeros;
         if(isValidSID(sid)) {
             lastSID = sid;
-            if(!sheetWrapper.isPresent(sid)) {
-                sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
-                if(sheetWrapper.setPresent(sid, true)) {
-                    flashTimer = flashTimerMax;
+            if(sheetWrapper.getRowBySID(sid) != null) {
+                if (!sheetWrapper.isPresent(sid)) {
+                    sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
+                    if (sheetWrapper.setPresent(sid, true)) {
+                        flashTimer = flashTimerMax;
+                    }
                 }
+                lastName = sheetWrapper.getFullnameBySID(sid);
+            }else if(!enteringNewSID){
+                enteringNewSID = true;
+                new Thread(() -> {
+                    int response = JOptionPane.showConfirmDialog(frame.getCanvas(), "The scanned ID is not present in the system.\nAdd it?", frame.frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+                    cancel: if(response == JOptionPane.YES_OPTION){
+                        //TODO: Case if there's multiple people with the same last name
+                        List<Row> rows;
+                        String name = null;
+                        do {
+                            name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name for the member associated with this ID:");
+                            if(name == null) break cancel;
+                        } while((rows = sheetWrapper.getRowByLastName(name)).isEmpty());
+
+                        if(rows.size() > 1){
+                            Row row;
+                            String firstName = null;
+                            do {
+                                firstName = JOptionPane.showInputDialog((firstName != null ? "That name is not present.\n" : "") + "There are multiple people with that last name!\nEnter the first name for the member associated with this ID:");
+                                if(firstName == null) break cancel;
+                            } while((row = sheetWrapper.getRowByFullName(firstName, name)) == null);
+
+                            sheetWrapper.setSIDByFullName(firstName, name, sid);
+                        }else {
+                            sheetWrapper.setSIDByLastName(name, sid);
+                        }
+
+                        if (!sheetWrapper.isPresent(sid)) {
+                            sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
+                            if (sheetWrapper.setPresent(sid, true)) {
+                                flashTimer = flashTimerMax;
+                            }
+                        }
+                    }
+                    lastName = sheetWrapper.getFullnameBySID(sid);
+                    enteringNewSID = false;
+                }).start();
             }
         }else{
             lastSID = "INVALID";
+            if(lastResult.getText().equals("871")){
+                lastSID = "YEA";
+                lastName = "TIM";
+            }
         }
     }
 

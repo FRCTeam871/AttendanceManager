@@ -5,8 +5,11 @@ import jpos.Scanner;
 import jpos.events.*;
 import jpos.util.JposPropertiesConst;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.image.BufferedImage;
 
 public class JPOSSense extends GenericSense implements ErrorListener, DataListener, StatusUpdateListener {
 
@@ -15,6 +18,9 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
     long time;
 
     Scanner scanner;
+
+    Image img;
+    Image img2;
 
     public JPOSSense(){
         System.out.println("Looking for jpos.xml at " + System.getProperty("user.home") + "\\jpos.xml");
@@ -35,6 +41,12 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
             }
         }
 
+        try {
+            img = ImageIO.read(JPOSSense.class.getClassLoader().getResource("cool image.png"));
+        }catch(Exception e){}
+        try {
+            img2 = ImageIO.read(JPOSSense.class.getClassLoader().getResource("tim.jpg"));
+        }catch(Exception e){}
     }
 
     void startConnectThread(){
@@ -73,6 +85,17 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
             buffer = "";
         }
         return ret == null ? null : new BarcodeResult(ret, time);
+    }
+
+    @Override
+    public void renderPreview(Graphics2D g, int width, int height) {
+        g.setColor(Color.BLUE);
+        g.fillRect(0, 0, width, height);
+        g.setColor(Color.GREEN);
+        String s = "Scan a Barcode!";
+        g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
+        g.drawString(s, 180, 50);
+        g.drawImage((cachedResult != null && cachedResult.getText().equalsIgnoreCase("871")) ? img2 : img,0, 0, width, height, null);
     }
 
     @Override

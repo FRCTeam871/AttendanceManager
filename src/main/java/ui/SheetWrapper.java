@@ -3,6 +3,7 @@ package ui;
 import org.apache.poi.ss.usermodel.*;
 
 import javax.swing.*;
+import java.util.List;
 import java.awt.*;
 import java.awt.Color;
 import java.awt.Font;
@@ -14,6 +15,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 
@@ -201,8 +203,6 @@ public class SheetWrapper implements MouseWheelListener {
             for (int i = firstRow; i <= lastRow - (showSIDCol ? 0 : 1); i++) {
                 int x = i - firstRow;
 
-
-
                 final String headerVal = fetchCached(r, i);
                 boolean present = headerVal != null && headerVal.equals("1");
                 boolean hasValue = headerVal != null && !headerVal.isEmpty();
@@ -285,6 +285,24 @@ public class SheetWrapper implements MouseWheelListener {
         }
     }
 
+    public void setSIDByFullName(String firstName, String lastName, String sid){
+        Row row = getRowByFullName(firstName, lastName);
+        row.getCell(lastRow).setCellValue(Double.parseDouble(sid));
+        clearCacheRow(row.getRowNum());
+    }
+
+    public void setSIDByLastName(String lastName, String sid){
+        Row row = getRowByLastName(lastName).get(0);
+        row.getCell(lastRow).setCellValue(Double.parseDouble(sid));
+        clearCacheRow(row.getRowNum());
+    }
+
+    public String getFullnameBySID(String sid){
+        Row row = getRowBySID(sid);
+        if(row == null) return "";
+        return formatCell(row.getCell(firstRow + 1)) + " " + formatCell(row.getCell(firstRow));
+    }
+
     private String fetchCached(int r, int i) {
         int cr = r - headerRow.getRowNum();
         int ci = i - firstRow;
@@ -304,7 +322,7 @@ public class SheetWrapper implements MouseWheelListener {
     }
 
     public Row getRowBySID(String sid){
-        for(int i = headerRow.getRowNum(); i < sheet.getPhysicalNumberOfRows(); i++){
+        for(int i = headerRow.getRowNum() + 1; i < sheet.getPhysicalNumberOfRows(); i++){
             Row r = sheet.getRow(i);
             String headerVal = formatCell(r.getCell(lastRow));
             if(headerVal != null && headerVal.equals(sid)){
@@ -312,6 +330,31 @@ public class SheetWrapper implements MouseWheelListener {
             }
         }
         return null;
+    }
+
+    public Row getRowByFullName(String first, String last){
+        List<Row> ret = new ArrayList<>();
+        for(int i = headerRow.getRowNum() + 1; i < sheet.getPhysicalNumberOfRows(); i++){
+            Row r = sheet.getRow(i);
+            String headerVal = formatCell(r.getCell(firstRow+1));
+            String headerVal2 = formatCell(r.getCell(firstRow));
+            if((headerVal != null && headerVal.equalsIgnoreCase(first)) && (headerVal2 != null && headerVal2.equalsIgnoreCase(last))){
+                return r;
+            }
+        }
+        return null;
+    }
+
+    public List<Row> getRowByLastName(String name){
+        List<Row> ret = new ArrayList<>();
+        for(int i = headerRow.getRowNum() + 1; i < sheet.getPhysicalNumberOfRows(); i++){
+            Row r = sheet.getRow(i);
+            String headerVal = formatCell(r.getCell(firstRow));
+            if(headerVal != null && headerVal.equalsIgnoreCase(name)){
+                ret.add(r);
+            }
+        }
+        return ret;
     }
 
     public void highlightRow(Row row){

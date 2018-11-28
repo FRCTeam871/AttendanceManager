@@ -8,6 +8,7 @@ import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.oned.OneDReader;
 
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,5 +57,7 @@ public abstract class GenericSense {
     public boolean removeListener(ResultListener listener){
         return listeners.remove(listener);
     }
+
+    public abstract void renderPreview(Graphics2D g, int width, int height);
 
 }

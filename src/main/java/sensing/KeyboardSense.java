@@ -1,5 +1,6 @@
 package sensing;
 
+import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 
@@ -19,6 +20,12 @@ public class KeyboardSense extends GenericSense implements KeyListener {
             buffer = "";
         }
         return ret == null ? null : new BarcodeResult(ret, time);
+    }
+
+    @Override
+    public void renderPreview(Graphics2D g, int width, int height) {
+        g.setColor(Color.BLUE);
+        g.fillRect(0,0, width, height);
     }
 
     @Override

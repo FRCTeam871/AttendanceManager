@@ -7,6 +7,7 @@ import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.oned.OneDReader;
 import ui.imageprovider.ImageProvider;
 
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 
@@ -14,6 +15,9 @@ public class ImageSense extends GenericSense {
 
     final OneDReader reader;
     ImageProvider imgProvider;
+
+    BufferedImage lastWebcam;
+    int timeCooldown = 0;
 
     public ImageSense(OneDReader reader, ImageProvider provider) {
         super();
@@ -32,6 +36,46 @@ public class ImageSense extends GenericSense {
             e.printStackTrace();
         }
         return null;
+    }
+
+    @Override
+    public void update() {
+        super.update();
+
+        if(timeCooldown == 0 && imgProvider != null && imgProvider.isAvailable()){
+            BufferedImage bi = imgProvider.getImage();
+            BufferedImage biNew = new BufferedImage(bi.getWidth(null), bi.getHeight(null), BufferedImage.TYPE_INT_RGB);
+            Graphics g = biNew.createGraphics();
+            g.drawImage(bi, 0, 0, null);
+            g.dispose();
+            lastWebcam = biNew;
+            timeCooldown--;
+            if(timeCooldown == 0) timeCooldown = 5;
+        }
+
+    }
+
+    @Override
+    public void renderPreview(Graphics2D g, int width, int height) {
+        if(lastWebcam != null) {
+
+//        System.out.println(img.getWidth() + " " + img.getHeight());
+//            long start = System.currentTimeMillis();
+            g.drawImage(lastWebcam, 0,0, width, height, null); //TODO: why does this call take so long when using webcam? (scaling?)
+//        System.out.println("took " + (System.currentTimeMillis() - start) + " " + img.getType() + " " + img.getClass());
+
+            g.setColor(new Color(0.5f, 0.5f, 0.5f, 1f));
+            String str = imgProvider.getInfo();
+            g.drawString(str, 2, height - 2);
+        }else{
+            g.setColor(Color.DARK_GRAY);
+            g.fillRect(0,0, width, height);
+            g.setColor(Color.LIGHT_GRAY);
+            float thru = (System.currentTimeMillis() % 1000) / 1000f;
+            String s = "Starting ImageProvider" + (thru >= 0.25f ? "." : " ") + (thru >= 0.5f ? "." : " ") + (thru >= 0.75f ? "." : " ");
+            g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
+            g.drawString(s, width/2 - g.getFontMetrics().stringWidth(s)/2, height/2);
+        }
     }
 
 }
