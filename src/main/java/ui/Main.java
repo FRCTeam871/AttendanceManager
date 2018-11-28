@@ -236,7 +236,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         int padding = 16;
 
         Graphics2D g = frame.getCanvas().getRenderGraphics();
-        g.clearRect(0, 0, frame.getCanvas().getDimensions().width, frame.getCanvas().getDimensions().height);
+//        g.clearRect(0, 0, frame.getCanvas().getDimensions().width, frame.getCanvas().getDimensions().height);
 
         if(frame.hasFocus()){
             g.setColor(Color.RED);
@@ -252,7 +252,9 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         }else {
             g.setColor(Color.DARK_GRAY);
         }
+
         g.fillRect(0, 0, frame.getCanvas().getDimensions().width, frame.getCanvas().getDimensions().height);
+
 
         Dimension dim = frame.getCanvas().getDimensions();
 
@@ -267,7 +269,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         if(lastWebcam != null) {
 
 //        System.out.println(img.getWidth() + " " + img.getHeight());
-            long start = System.currentTimeMillis();
+//            long start = System.currentTimeMillis();
             g.drawImage(lastWebcam, camRect.x, camRect.y, camRect.width, camRect.height, null); //TODO: why does this call take so long when using webcam? (scaling?)
 //        System.out.println("took " + (System.currentTimeMillis() - start) + " " + img.getType() + " " + img.getClass());
 
@@ -292,20 +294,6 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         g.setColor(Color.WHITE);
         g.fillRect(infoRect.x, infoRect.y, infoRect.width, infoRect.height);
 
-        //TODO: reimplement
-//        if(r != null) {
-//            g.setStroke(new BasicStroke(2f));
-//            ResultPoint[] points = r.getResultPoints();
-//            for (int i = 0; i < points.length; i++) {
-//                ResultPoint th = points[i];
-//                ResultPoint next = (i == points.length - 1) ? points[0] : points[i + 1];
-//                g.setColor(Color.GREEN);
-//                g.drawLine((int) ((th.getX() / img.getWidth()) * camRect.width + camRect.x), (int) ((th.getY() / img.getHeight()) * camRect.height + camRect.y), (int) ((next.getX() / img.getWidth()) * camRect.width + camRect.x), (int) ((next.getY() / img.getHeight()) * camRect.height + camRect.y));
-//            }
-//        }
-
-
-
         g.setColor(Color.BLACK);
         g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
 
@@ -316,7 +304,6 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         for(int i = 0; i < lines.size(); i++){
             g.drawString(lines.get(i), infoRect.x + 10, infoRect.y + 32 + 32*i);
         }
-
 
         Rectangle tableRect = new Rectangle(padding, (int)(dim.height * 0.4 + padding + padding), (int)(dim.width - padding*2), (int)((dim.height) - (dim.height * 0.4 + padding + padding) - padding));
         g.setColor(Color.LIGHT_GRAY);
@@ -335,6 +322,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
         g.setTransform(tr);
 
+
         frame.paint();
     }
 
@@ -344,7 +332,6 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
     private BufferedImage doFiltering(BufferedImage src){
         BufferedImage out = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_RGB);
-
 
         RescaleOp rescale = new RescaleOp(2.0f,20.0f, null);
         out = rescale.filter(src,null);

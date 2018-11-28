@@ -14,6 +14,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.HashMap;
 import java.util.Random;
 
 public class SheetWrapper implements MouseWheelListener {
@@ -106,6 +107,9 @@ public class SheetWrapper implements MouseWheelListener {
                 maxRow = i;
             }
         }
+
+        clearCache();
+
     }
 
     private void setupSIDColumn(Sheet sheet, File f) {
@@ -157,13 +161,22 @@ public class SheetWrapper implements MouseWheelListener {
         if(highlightTimer > 0) highlightTimer--;
     }
 
+    Color CURRENT_DATE_COL = new Color(225, 210, 110);
+    Color ABSENT_EVEN = new Color(0.7f, 0.35f, 0.35f);
+    Color ABSENT_ODD =  new Color(1f, 0.4f, 0.4f);
+    Color PRESENT_EVEN = new Color(0.3f, 0.65f, 0.3f);
+    Color PRESENT_ODD = new Color(0.4f, 1f, 0.4f);
+
+    String[][] cache;
+
     public void drawTable(Graphics2D g, int width, int height, int time){
+
         //TODO: this is kinda hacky
         this.renderWidth = width;
         this.renderHeight = height;
 
-        g.setColor(Color.BLUE);
-        g.drawRect(10, 10, 20, 20);
+//        g.setColor(Color.BLUE);
+//        g.drawRect(10, 10, 20, 20);
 
         int startingRow = headerRow.getRowNum();
 
@@ -183,14 +196,16 @@ public class SheetWrapper implements MouseWheelListener {
         r: for(int r = maxRow-1; r >= startingRow; r--) {
             g.setTransform(oTrans);
             if(r > startingRow) g.translate(0, ofsY);
-            for (int i = firstRow; i <= lastRow - (showSIDCol ? 0 : 1); i++) {
-                g.setColor(Color.BLACK);
-                int x = i - firstRow;
-                int y = r - startingRow;
+            int y = r - startingRow;
 
-                Row row = sheet.getRow(r);
-                Cell cell = row.getCell(i);
-                final String headerVal = formatCell(cell);
+            for (int i = firstRow; i <= lastRow - (showSIDCol ? 0 : 1); i++) {
+                int x = i - firstRow;
+
+
+
+                final String headerVal = fetchCached(r, i);
+                boolean present = headerVal != null && headerVal.equals("1");
+                boolean hasValue = headerVal != null && !headerVal.isEmpty();
 
                 int cx;
                 if(i <= firstRow + 1){
@@ -205,16 +220,16 @@ public class SheetWrapper implements MouseWheelListener {
                 g.setColor(r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE);
 
                 if(i == currentDateColumn){
-                    if(headerVal != null && headerVal.equals("1")){
-                        g.setColor(new Color(0f, 1f, 0f));
+                    if(present){
+                        g.setColor(Color.GREEN);
                     }else {
-                        g.setColor(new Color(225, 210, 110));
+                        g.setColor(CURRENT_DATE_COL);
                     }
                 }else if(i > firstRow + 1 && i < currentDateColumn && r > startingRow){
-                    if((headerVal == null || headerVal.isEmpty())) {
-                        g.setColor(r % 2 == 0 ? new Color(0.7f, 0.35f, 0.35f) : new Color(1f, 0.4f, 0.4f));
+                    if(!hasValue) {
+                        g.setColor(r % 2 == 0 ? ABSENT_EVEN : ABSENT_ODD);
                     }else{
-                        g.setColor(r % 2 == 0 ? new Color(0.3f, 0.65f, 0.3f) : new Color(0.4f, 1f, 0.4f));
+                        g.setColor(r % 2 == 0 ? PRESENT_EVEN : PRESENT_ODD);
                     }
                 }else if(i > currentDateColumn && i < lastRow - 1 && r > 1){
                     g.setColor(Color.GRAY);
@@ -261,13 +276,31 @@ public class SheetWrapper implements MouseWheelListener {
                 if(i > firstRow + 1 && i <= currentDateColumn && r > startingRow){
 
                 }else{
-                    if (headerVal != null && !headerVal.isEmpty()) {
+                    if (hasValue) {
                         g.drawString(headerVal, cx + 4, cy + ch/2 + g.getFont().getSize()/2);
                     }
                 }
 
             }
         }
+    }
+
+    private String fetchCached(int r, int i) {
+        int cr = r - headerRow.getRowNum();
+        int ci = i - firstRow;
+        if(cache[cr][ci] != null) return cache[cr][ci];
+        return cache[cr][ci] = formatCell(sheet.getRow(r).getCell(i));
+    }
+
+    private void clearCache(){
+        cache = new String[maxRow - headerRow.getRowNum() + 1][];
+        for(int i = 0; i < cache.length; i++){
+            cache[i] = new String[lastRow - firstRow + 1];
+        }
+    }
+
+    private void clearCacheRow(int r){
+        cache[r - headerRow.getRowNum()] = new String[lastRow - firstRow + 1];
     }
 
     public Row getRowBySID(String sid){
@@ -311,6 +344,7 @@ public class SheetWrapper implements MouseWheelListener {
         Row row = getRowBySID(sid);
         if(row != null){
             unsaved = true;
+            clearCacheRow(row.getRowNum());
             if(present){
                 row.getCell(currentDateColumn).setCellValue(1);
             }else{
