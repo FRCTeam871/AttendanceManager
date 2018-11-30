@@ -31,15 +31,14 @@ public class Frame implements WindowFocusListener {
 //        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
 //        frame.setUndecorated(true);
         frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
         frame.addWindowFocusListener(this);
 
-        Point loc = frame.getLocationOnScreen();
-        System.out.println(loc);
-
-        Dimension dim2 = dim;
+//        Point loc = frame.getLocationOnScreen();
+//        System.out.println(loc);
+//
+//        Dimension dim2 = dim;
 //        new Thread(() -> {
 //            try{
 //                Thread.sleep(5000);
@@ -98,4 +97,9 @@ public class Frame implements WindowFocusListener {
     public boolean hasFocus(){
         return hasFocus;
     }
+
+    public void setVisible(boolean visible){
+        frame.setVisible(visible);
+    }
+
 }

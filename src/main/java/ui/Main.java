@@ -66,6 +66,8 @@ public class Main implements ResultListener, KeyListener, WindowListener {
     SheetWrapper sheetWrapper;
     private boolean enteringNewSID = false;
 
+    private boolean settingsMode = false;
+
     public static void main(String[] args){
         new Main();
     }
@@ -89,6 +91,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
     private void init(){
 
         frame = new Frame();
+
 
 //        new Thread(() -> {
 //            try {
@@ -125,6 +128,8 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
         frame.addKeyListener(this);
         frame.addWindowListener(this);
+
+        frame.setVisible(true);
     }
 
     private void run(){
@@ -201,10 +206,16 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
     private void render(){
 
-        int padding = 16;
-
         Graphics2D g = frame.getCanvas().getRenderGraphics();
 //        g.clearRect(0, 0, frame.getCanvas().getDimensions().width, frame.getCanvas().getDimensions().height);
+
+        if(settingsMode){
+            renderSettings(g);
+            frame.paint();
+            return;
+        }
+
+        int padding = 16;
 
         if(frame.hasFocus()){
             g.setColor(Color.RED);
@@ -278,6 +289,16 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
 
         frame.paint();
+    }
+
+    private void renderSettings(Graphics2D g) {
+        g.setColor(Color.LIGHT_GRAY);
+        g.fillRect(0, 0, frame.getCanvas().getWidth(), frame.getCanvas().getHeight());
+
+        g.setColor(Color.BLACK);
+        g.setFont(new Font("Arial", Font.PLAIN, 32));
+        String header = "Settings";
+        g.drawString(header, frame.getCanvas().getWidth() / 2 - g.getFontMetrics().stringWidth(header)/2, 40);
     }
 
     public int getTime() {
@@ -448,6 +469,8 @@ public class Main implements ResultListener, KeyListener, WindowListener {
             if(result == JOptionPane.YES_OPTION) {
                 showSaveDialog();
             }
+        }else if(e.getKeyCode() == KeyEvent.VK_F5){
+            settingsMode = !settingsMode;
         }
     }
 

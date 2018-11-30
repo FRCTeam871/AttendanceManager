@@ -35,7 +35,8 @@ dependencies {
             'com.google.zxing:javase:3.3.3',
             'com.github.sarxos:webcam-capture:0.3.10',
             'org.javapos:javapos:1.14.0',
-            'xerces:xercesImpl:2.8.0'
+            'xerces:xercesImpl:2.8.0',
+            'net.sourceforge.barbecue:barbecue:1.5-beta1'
     //i don't think these libs (com.motorola.jpos) are on maven
     //i got them from the zebra scanner sdk
     compile name: 'JPosService'
