@@ -3,6 +3,9 @@ package sensing;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 public class KeyboardSense extends GenericSense implements KeyListener {
 
@@ -49,4 +52,13 @@ public class KeyboardSense extends GenericSense implements KeyListener {
     public void keyReleased(KeyEvent e) {
 
     }
+
+    @Override
+    public Collection<? extends String> getDebugInfo() {
+        List<String> ret = new ArrayList<>();
+        ret.add("Buffer = \"" + buffer + "\"");
+        ret.add("Time = " + time);
+        return ret;
+    }
+
 }

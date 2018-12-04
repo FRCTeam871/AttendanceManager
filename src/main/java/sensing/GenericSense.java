@@ -11,6 +11,7 @@ import com.google.zxing.oned.OneDReader;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 public abstract class GenericSense {
@@ -37,6 +38,8 @@ public abstract class GenericSense {
             for(ResultListener l : listeners) l.changed(newResult);
         }
 
+        for(ResultListener l : listeners) l.scanned(newResult);
+
         instantResult = cachedResult;
     }
 
@@ -60,4 +63,9 @@ public abstract class GenericSense {
 
     public abstract void renderPreview(Graphics2D g, int width, int height);
 
+    public void resetCache(){
+        cachedResult = null;
+    }
+
+    public abstract Collection<? extends String> getDebugInfo();
 }

@@ -7,9 +7,12 @@ import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.oned.OneDReader;
 import ui.imageprovider.ImageProvider;
 
+import java.util.List;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 
 public class ImageSense extends GenericSense {
 
@@ -76,6 +79,17 @@ public class ImageSense extends GenericSense {
             g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
             g.drawString(s, width/2 - g.getFontMetrics().stringWidth(s)/2, height/2);
         }
+    }
+
+    @Override
+    public Collection<? extends String> getDebugInfo() {
+        List<String> ret = new ArrayList<>();
+        ret.add("Image Provider = " + imgProvider);
+        if(imgProvider != null) {
+            ret.add("Provider Avail = " + imgProvider.isAvailable());
+            ret.add("Provider Info = " + imgProvider.getInfo());
+        }
+        return ret;
     }
 
 }

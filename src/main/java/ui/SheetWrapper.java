@@ -81,7 +81,7 @@ public class SheetWrapper implements MouseWheelListener {
 
         tableFont = new Font("Arial", Font.BOLD, 12);
 
-        currentDateColumn = getColumnIndexByName("10/25");
+        currentDateColumn = getColumnIndexByName(Settings.getDate());
     }
 
     private void init(){

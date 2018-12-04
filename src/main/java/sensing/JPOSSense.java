@@ -4,12 +4,16 @@ import jpos.JposException;
 import jpos.Scanner;
 import jpos.events.*;
 import jpos.util.JposPropertiesConst;
+import ui.Settings;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 public class JPOSSense extends GenericSense implements ErrorListener, DataListener, StatusUpdateListener {
 
@@ -23,8 +27,10 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
     Image img2;
 
     public JPOSSense(){
-        System.out.println("Looking for jpos.xml at " + System.getProperty("user.home") + "\\jpos.xml");
-        System.setProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, System.getProperty("user.home") + "\\jpos.xml");
+        String jposXmlPath = Settings.getJposXmlPath();
+        System.out.println("Looking for jpos.xml at " + jposXmlPath);
+        System.setProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, jposXmlPath);
+
         try {
             scanner = new Scanner();
             scanner.addErrorListener(this);
@@ -69,6 +75,7 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
             try {
                 scanner.setDeviceEnabled(true);
                 scanner.setDataEventEnabled(true);
+                scanner.checkHealth(1);
             }catch(JposException e){
                 e.printStackTrace();
             }
@@ -121,4 +128,25 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
     public void statusUpdateOccurred(StatusUpdateEvent e) {
 
     }
+
+    @Override
+    public Collection<? extends String> getDebugInfo() {
+        List<String> ret = new ArrayList<>();
+        ret.add("Scanner = " + scanner);
+        if(scanner != null){
+            try {
+                ret.add("Scanner State = " + scanner.getState());
+                if(scanner.getClaimed()) {
+                    ret.add("Scanner Name = " + scanner.getPhysicalDeviceName());
+                    ret.add("Scanner Health = " + scanner.getCheckHealthText());
+                }else{
+                    ret.add("Scanner Not Claimed");
+                }
+            }catch(JposException e){
+                e.printStackTrace();
+            }
+        }
+        return ret;
+    }
+
 }

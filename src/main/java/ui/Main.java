@@ -66,6 +66,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
     SheetWrapper sheetWrapper;
     private boolean enteringNewSID = false;
 
+    SettingsMenu settings;
     private boolean settingsMode = false;
 
     public static void main(String[] args){
@@ -90,8 +91,12 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
     private void init(){
 
-        frame = new Frame();
+        Settings.init();
 
+        barcodeSensor = new JPOSSense();
+
+        frame = new Frame();
+        settings = new SettingsMenu(this, barcodeSensor);
 
 //        new Thread(() -> {
 //            try {
@@ -119,11 +124,9 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 //        barcodeSensor = new KeyboardSense();
 //        frame.addKeyListener((KeyboardSense)barcodeSensor);
 
-        barcodeSensor = new JPOSSense();
-
         barcodeSensor.addListener(this);
 
-        sheetWrapper = new SheetWrapper(Main.class.getClassLoader().getResource("att.xlsx"));
+        sheetWrapper = new SheetWrapper(Settings.getSheetURL());
         frame.addMouseWheelListener(sheetWrapper);
 
         frame.addKeyListener(this);
@@ -200,6 +203,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         barcodeSensor.update();
 
         sheetWrapper.tick(time);
+        settings.tick();
 
         time++;
     }
@@ -292,13 +296,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
     }
 
     private void renderSettings(Graphics2D g) {
-        g.setColor(Color.LIGHT_GRAY);
-        g.fillRect(0, 0, frame.getCanvas().getWidth(), frame.getCanvas().getHeight());
-
-        g.setColor(Color.BLACK);
-        g.setFont(new Font("Arial", Font.PLAIN, 32));
-        String header = "Settings";
-        g.drawString(header, frame.getCanvas().getWidth() / 2 - g.getFontMetrics().stringWidth(header)/2, 40);
+        settings.render(g, frame.getCanvas().getWidth(), frame.getCanvas().getHeight());
     }
 
     public int getTime() {
@@ -373,6 +371,17 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         if(enteringNewSID) return; //don't accept new scans if setting up new SID
 
         System.out.println("Scanned: " + result.getText());
+
+        if(result.getText().startsWith(SettingsMenu.SETTINGS_CODE_PREFIX)){
+            return;
+        }
+
+        if(result.getText().startsWith("A871L%4$9Z-") /*admin prefix*/){
+            return;
+        }
+
+        if(settingsMode) return;
+
         lastResult = result;
         lastName = "...";
 
@@ -433,6 +442,29 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         }
     }
 
+    @Override
+    public void scanned(BarcodeResult result) {
+        if(result.getText().startsWith(SettingsMenu.SETTINGS_CODE_PREFIX)){
+            settings.handleResult(result);
+            return;
+        }
+
+        if(result.getText().startsWith("A871L%4$9Z-") /*admin prefix*/){
+            handleAdmin(result);
+            return;
+        }
+    }
+
+    private void handleAdmin(BarcodeResult result) {
+        String cmd = result.getText().substring("A871L%4$9Z-".length());
+        System.out.println(cmd);
+        switch(cmd){
+            case "SETTINGS":
+                settingsMode = !settingsMode;
+                break;
+        }
+    }
+
     boolean isValidSID(String test){
         if(!test.matches("^\\d+(\\d+)?$")) return false; //is numeric
         if(!(test.length() == 5 || test.length() == 6)) return false; // must be 5 or 6 digits
@@ -469,8 +501,8 @@ public class Main implements ResultListener, KeyListener, WindowListener {
             if(result == JOptionPane.YES_OPTION) {
                 showSaveDialog();
             }
-        }else if(e.getKeyCode() == KeyEvent.VK_F5){
-            settingsMode = !settingsMode;
+        }else if(e.getKeyCode() == KeyEvent.VK_F5 && settingsMode){
+            settingsMode = false;
         }
     }
 
@@ -522,6 +554,18 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
     public static void exit(int status){
         System.exit(status);
+    }
+
+    public BarcodeResult getLastResult(){
+        return lastResult;
+    }
+
+    public String getLastSID(){
+        return lastSID;
+    }
+
+    public String getLastName(){
+        return lastName;
     }
 
 }
