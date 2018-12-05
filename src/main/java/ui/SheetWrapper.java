@@ -81,7 +81,7 @@ public class SheetWrapper implements MouseWheelListener {
 
         tableFont = new Font("Arial", Font.BOLD, 12);
 
-        currentDateColumn = getColumnIndexByName(Settings.getDate());
+        updateDate();
     }
 
     private void init(){
@@ -385,7 +385,39 @@ public class SheetWrapper implements MouseWheelListener {
 
     public boolean setPresent(String sid, boolean present){
         Row row = getRowBySID(sid);
-        if(row != null){
+        if(row != null && currentDateColumn != -1){
+            unsaved = true;
+            clearCacheRow(row.getRowNum());
+            if(present){
+                row.getCell(currentDateColumn).setCellValue(1);
+            }else{
+                row.getCell(currentDateColumn).setCellValue("");
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean setPresentByLastName(String last, boolean present){
+        Row row = getRowByLastName(last).get(0);
+        if(row != null && currentDateColumn != -1){
+            unsaved = true;
+            clearCacheRow(row.getRowNum());
+            if(present){
+                row.getCell(currentDateColumn).setCellValue(1);
+            }else{
+                row.getCell(currentDateColumn).setCellValue("");
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean setPresentByFullName(String first, String last, boolean present){
+        Row row = getRowByFullName(first, last);
+        if(row != null && currentDateColumn != -1){
             unsaved = true;
             clearCacheRow(row.getRowNum());
             if(present){
@@ -401,7 +433,7 @@ public class SheetWrapper implements MouseWheelListener {
 
     public boolean isPresent(String sid){
         Row row = getRowBySID(sid);
-        if(row != null){
+        if(row != null && currentDateColumn != -1){
             String val = formatCell(row.getCell(currentDateColumn));
             return val != null && val.equals("1");
         }
@@ -435,5 +467,9 @@ public class SheetWrapper implements MouseWheelListener {
 
     public boolean hasUnsaved() {
         return unsaved;
+    }
+
+    public void updateDate() {
+        currentDateColumn = getColumnIndexByName(Settings.getDate());
     }
 }

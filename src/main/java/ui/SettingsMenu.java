@@ -5,10 +5,12 @@ import net.sourceforge.barbecue.Barcode;
 import net.sourceforge.barbecue.BarcodeException;
 import net.sourceforge.barbecue.linear.code39.Code39Barcode;
 import net.sourceforge.barbecue.output.OutputException;
+import org.apache.poi.ss.usermodel.Row;
 import sensing.BarcodeResult;
 import sensing.GenericSense;
 
 import javax.sound.sampled.*;
+import javax.swing.*;
 import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
@@ -40,6 +42,45 @@ public class SettingsMenu {
         actions.put(new Pair<>("T1", "Test Scanner"), () -> {
             System.out.println("test 1!");
             playTestSound();
+        });
+        actions.put(new Pair<>("D8", "Set Date"), () -> {
+            new Thread(() -> {
+                String res = JOptionPane.showInputDialog(main.frame.getCanvas(), "Enter a new date:");
+                if(res != null){
+                    Settings.setDate(res);
+                    main.sheetWrapper.updateDate();
+                }
+            }).start();
+        });
+        actions.put(new Pair<>("SI", "Sign In By Name"), () -> {
+            new Thread(() -> {
+                cancel: {
+                    List<Row> rows;
+                    String name = null;
+                    do {
+                        name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name of the member:");
+                        if (name == null) break cancel;
+                    } while ((rows = main.sheetWrapper.getRowByLastName(name)).isEmpty());
+
+                    if (rows.size() > 1) {
+                        Row row;
+                        String firstName = null;
+                        do {
+                            firstName = JOptionPane.showInputDialog((firstName != null ? "That name is not present.\n" : "") + "There are multiple people with that last name!\nEnter the first name of the member:");
+                            if (firstName == null) break cancel;
+                        } while ((row = main.sheetWrapper.getRowByFullName(firstName, name)) == null);
+
+                        main.sheetWrapper.setPresentByFullName(firstName, name, true);
+                        JOptionPane.showMessageDialog(main.frame.getCanvas(), "Signed in.");
+                    } else {
+                        main.sheetWrapper.setPresentByLastName(name, true);
+                        JOptionPane.showMessageDialog(main.frame.getCanvas(), "Signed in.");
+                    }
+                }
+            }).start();
+        });
+        actions.put(new Pair<>("FS", "Toggle Fullscreen"), () -> {
+            main.frame.setFullscreen(!main.frame.fullscreen);
         });
     }
 
@@ -95,16 +136,16 @@ public class SettingsMenu {
             int bx = 20 + 400*(col);
             int by = 80 + (i%colCt) * 20;
 
-            g.setColor(Color.BLUE);
-            g.drawRect(bx-4, by - 14, 400+4 - 10, 12+4);
-//            g.setClip(bx-4, by - 14, 400+4 - 10, 12+4);
+//            g.setColor(Color.BLUE);
+//            g.drawRect(bx-4, by - 14, 400+4 - 10, 12+4);
+            g.setClip(bx-4, by - 14, 400+4 - 10, 12+4);
             g.setColor(Color.BLACK);
 
-            int w = g.getFontMetrics().stringWidth(params.get(i));
+            int w = g.getFontMetrics().stringWidth(params.get(i)) + 6;
             if(w > 400 + 4 - 10){
                 //TODO
-                System.out.println(((400 + 4 - 10)-w) + " " + (Math.sin(System.currentTimeMillis() / 1000f) + 1)/2f);
-                bx += (Math.sin(System.currentTimeMillis() / 1000f) + 1)/2f * ((400 + 4 - 10)-w);
+//                System.out.println(((400 + 4 - 10)-w) + " " + (Math.sin(System.currentTimeMillis() / 1000.0) + 1)/2f);
+                bx += (Math.sin(System.currentTimeMillis() / 5000.0) + 1)/2f * ((400 + 4 - 10)-w);
             }
 
             g.drawString(params.get(i), bx, by);

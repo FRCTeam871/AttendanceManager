@@ -12,28 +12,14 @@ public class Frame implements WindowFocusListener {
 
     boolean hasFocus = false;
 
+    boolean fullscreen = false;
+
     public Frame(){
         init();
     }
 
     private void init(){
-        Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
-        dim = new Dimension(1200, 800);
-        frame = new JFrame("Attendance UI");
-        panel = new JPanel();
-        panel.setPreferredSize(dim);
-        canvas = new UICanvas(dim.width, dim.height);
-
-        frame.add(panel);
-        frame.pack();
-        frame.remove(panel);
-        frame.getContentPane().add(canvas);
-//        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-//        frame.setUndecorated(true);
-        frame.setLocationRelativeTo(null);
-        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-
-        frame.addWindowFocusListener(this);
+        setFullscreen(true);
 
 //        Point loc = frame.getLocationOnScreen();
 //        System.out.println(loc);
@@ -53,6 +39,55 @@ public class Frame implements WindowFocusListener {
 //            }
 //        }).start();
 
+    }
+
+    public void setFullscreen(boolean fullscreen){
+        if(frame != null) frame.dispose();
+        if(fullscreen){
+            Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
+            if(frame == null) {
+                frame = new JFrame("Attendance UI");
+                panel = new JPanel();
+            }
+            panel.setPreferredSize(dim);
+            canvas = new UICanvas(dim.width, dim.height);
+
+//            frame.add(panel);
+//            frame.pack();
+//            frame.remove(panel);
+            frame.getContentPane().add(canvas);
+            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+            frame.setUndecorated(true);
+            frame.setLocationRelativeTo(null);
+            frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+
+            frame.addWindowFocusListener(this);
+            frame.setVisible(true);
+        }else{
+            Dimension dim = new Dimension(1200, 800);
+            if(frame == null) {
+                frame = new JFrame("Attendance UI");
+                panel = new JPanel();
+            }
+            panel.setPreferredSize(dim);
+            panel.setSize(dim);
+            canvas = new UICanvas(dim.width, dim.height);
+            frame.setUndecorated(false);
+
+            frame.add(panel);
+            frame.pack();
+            frame.remove(panel);
+            frame.getContentPane().add(canvas);
+            frame.setState(JFrame.NORMAL);
+
+            frame.setLocationRelativeTo(null);
+            frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+
+            frame.addWindowFocusListener(this);
+            frame.setVisible(true);
+        }
+
+        this.fullscreen = fullscreen;
     }
 
     public UICanvas getCanvas(){
