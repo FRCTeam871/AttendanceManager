@@ -1,26 +1,15 @@
 package ui;
 
-import com.github.sarxos.webcam.Webcam;
-import com.github.sarxos.webcam.WebcamResolution;
-import com.github.sarxos.webcam.log.WebcamLogConfigurator;
-import com.sun.javafx.scene.control.skin.TableHeaderRow;
-import org.apache.poi.sl.draw.DrawFactory;
-import org.apache.poi.sl.usermodel.MasterSheet;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFCellStyle;
-import org.apache.poi.xssf.usermodel.XSSFColor;
-import org.apache.poi.xssf.usermodel.XSSFDrawing;
-import org.apache.xmlbeans.impl.common.IOUtil;
 import sensing.BarcodeResult;
 import sensing.GenericSense;
 import sensing.JPOSSense;
 import sensing.ResultListener;
-import ui.imageprovider.ImageProvider;
-import ui.imageprovider.WebcamImageProvider;
 
-import javax.imageio.ImageIO;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
 import javax.swing.*;
-import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.Color;
 import java.awt.Font;
@@ -32,13 +21,8 @@ import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.RescaleOp;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 /**
  * @author Dave
@@ -68,6 +52,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
     SettingsMenu settings;
     private boolean settingsMode = false;
+    private Clip yeatim;
 
     public static void main(String[] args){
         new Main();
@@ -238,7 +223,6 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
         g.fillRect(0, 0, frame.getCanvas().getDimensions().width, frame.getCanvas().getDimensions().height);
 
-
         Dimension dim = frame.getCanvas().getDimensions();
 
         Rectangle camRect = new Rectangle(padding, padding, (int)(dim.width * 0.4), (int)(dim.height * 0.4));
@@ -250,9 +234,11 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         g.drawRect(100 + (int)(50 * Math.sin(time / 10f)), 100 + (int)(50 * Math.cos(time / 10f)), 20, 20);
 
         AffineTransform tr = g.getTransform();
+        g.setClip(camRect);
         g.translate(camRect.x, camRect.y);
         barcodeSensor.renderPreview(g, camRect.width, camRect.height);
         g.setTransform(tr);
+        g.setClip(null);
 
 
         Rectangle infoRect = new Rectangle((int)(dim.width - dim.width * 0.5 - padding), padding, (int)(dim.width * 0.5), (int)(dim.height * 0.4));
@@ -265,7 +251,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         g.setColor(Color.BLACK);
         g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
 
-        List<String> lines = new ArrayList<String>();
+        List<String> lines = new ArrayList<>();
         lines.add("Scanned: " + (lastResult == null ? "???" : lastResult.getText()));
         lines.add("SID: " + lastSID);
         if(!lastSID.equalsIgnoreCase("???")) lines.add("Name: " + lastName);
@@ -275,6 +261,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         }
 
         Rectangle tableRect = new Rectangle(padding, (int)(dim.height * 0.4 + padding + padding), (int)(dim.width - padding*2), (int)((dim.height) - (dim.height * 0.4 + padding + padding) - padding));
+//        System.out.println(tableRect.height);
         g.setColor(Color.LIGHT_GRAY);
         g.setStroke(new BasicStroke(8f));
         g.drawRect(tableRect.x, tableRect.y, tableRect.width, tableRect.height);
@@ -286,6 +273,8 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         tr = g.getTransform();
         g.setClip(tableRect);
         g.translate(tableRect.x, tableRect.y);
+
+//        g.fillRect(0, 0, 1000, 1000);
 
         sheetWrapper.drawTable(g, tableRect.width, tableRect.height, time);
 
@@ -372,6 +361,8 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
         System.out.println("Scanned: " + result.getText());
 
+        if(settingsMode && settings.isLocked()) return;
+
         if(result.getText().startsWith(SettingsMenu.SETTINGS_CODE_PREFIX)){
             return;
         }
@@ -438,12 +429,16 @@ public class Main implements ResultListener, KeyListener, WindowListener {
             if(lastResult.getText().equals("871")){
                 lastSID = "YEA";
                 lastName = "TIM";
+                playYeaTim();
             }
         }
     }
 
     @Override
     public void scanned(BarcodeResult result) {
+
+        if(settingsMode && settings.isLocked()) return;
+
         if(result.getText().startsWith(SettingsMenu.SETTINGS_CODE_PREFIX)){
             settings.handleResult(result);
             return;
@@ -566,6 +561,23 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
     public String getLastName(){
         return lastName;
+    }
+
+    private void playYeaTim(){
+        try {
+            if (yeatim == null){
+                yeatim = AudioSystem.getClip();
+            }else{
+                yeatim.close();
+            }
+
+            AudioInputStream inputStream = AudioSystem.getAudioInputStream(SettingsMenu.class.getClassLoader().getResource("tim.wav"));
+            yeatim.open(inputStream);
+            yeatim.setFramePosition(0);
+            yeatim.start();
+        }catch (Exception e){
+            System.err.println(e.getMessage());
+        }
     }
 
 }

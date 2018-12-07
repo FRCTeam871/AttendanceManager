@@ -131,6 +131,7 @@ public class SheetWrapper implements MouseWheelListener {
 
     public void tick(int time){
         int maxScroll = (cellHeight * (maxRow - headerRow.getRowNum())) - renderHeight + 2;
+//        System.out.println(renderHeight);
 
         if(highlightTimer == 0){
             highlightRow = null;
@@ -179,6 +180,8 @@ public class SheetWrapper implements MouseWheelListener {
 
 //        g.setColor(Color.BLUE);
 //        g.drawRect(10, 10, 20, 20);
+
+//        g.fillRect(0, 0, width, height);
 
         int startingRow = headerRow.getRowNum();
 
@@ -333,7 +336,7 @@ public class SheetWrapper implements MouseWheelListener {
     }
 
     public Row getRowByFullName(String first, String last){
-        List<Row> ret = new ArrayList<>();
+        if(first.isEmpty() || last.isEmpty()) return null;
         for(int i = headerRow.getRowNum() + 1; i < sheet.getPhysicalNumberOfRows(); i++){
             Row r = sheet.getRow(i);
             String headerVal = formatCell(r.getCell(firstRow+1));
@@ -347,6 +350,7 @@ public class SheetWrapper implements MouseWheelListener {
 
     public List<Row> getRowByLastName(String name){
         List<Row> ret = new ArrayList<>();
+        if(name.isEmpty()) return ret;
         for(int i = headerRow.getRowNum() + 1; i < sheet.getPhysicalNumberOfRows(); i++){
             Row r = sheet.getRow(i);
             String headerVal = formatCell(r.getCell(firstRow));
@@ -469,6 +473,9 @@ public class SheetWrapper implements MouseWheelListener {
         return unsaved;
     }
 
+    public boolean checkValidDate(String date) {
+        return getColumnIndexByName(date) != -1;
+    }
     public void updateDate() {
         currentDateColumn = getColumnIndexByName(Settings.getDate());
     }

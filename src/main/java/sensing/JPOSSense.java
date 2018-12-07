@@ -99,10 +99,23 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
         g.setColor(Color.BLUE);
         g.fillRect(0, 0, width, height);
         g.setColor(Color.GREEN);
+
+        g.setColor(Color.BLUE);
         String s = "Scan a Barcode!";
         g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
-        g.drawString(s, 180, 50);
-        g.drawImage((cachedResult != null && cachedResult.getText().equalsIgnoreCase("871")) ? img2 : img,0, 0, width, height, null);
+
+        int pos = 0;
+        for(int i = 0; i < s.length(); i++){
+            String ch = s.substring(i, i+1);
+            g.setColor(rainbowColor(0.005, i * -50));
+            g.drawString(ch, width - 400 + (int)(Math.cos((System.currentTimeMillis() + 50*i) / 200.0) * 5) + pos, 50 + (int)(Math.sin((System.currentTimeMillis() + 50*i) / 200.0) * 5));
+            pos += g.getFontMetrics().stringWidth(ch);
+        }
+
+        double sc = Math.sin(System.currentTimeMillis() / 200.0) * 0.1 + 1.1;
+        sc = 1.0;
+
+        g.drawImage((cachedResult != null && cachedResult.getText().equalsIgnoreCase("871")) ? img2 : img, (int)(width/2 - (width*sc)/2), 0, (int)(width * sc), height, null);
     }
 
     @Override
@@ -147,6 +160,19 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
             }
         }
         return ret;
+    }
+
+    public static Color rainbowColor(double frequency, int timeOffset){
+
+        long i = System.currentTimeMillis() + timeOffset;
+
+        float red   = (float) (Math.sin(frequency*i + 0) * 127 + 128);
+        float green = (float) (Math.sin(frequency*i + 2) * 127 + 128);
+        float blue  = (float) (Math.sin(frequency*i + 4) * 127 + 128);
+
+//        System.out.println(red + " " + green + " " + blue);
+
+        return new Color(red / 255f, green / 255f, blue / 255f);
     }
 
 }

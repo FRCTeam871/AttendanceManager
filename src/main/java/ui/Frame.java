@@ -14,11 +14,16 @@ public class Frame implements WindowFocusListener {
 
     boolean fullscreen = false;
 
+    Dimension minimizedSize;
+
     public Frame(){
         init();
     }
 
     private void init(){
+        setFullscreen(false);
+        minimizedSize = frame.getSize();
+        System.out.println("min " + minimizedSize);
         setFullscreen(true);
 
 //        Point loc = frame.getLocationOnScreen();
@@ -42,15 +47,20 @@ public class Frame implements WindowFocusListener {
     }
 
     public void setFullscreen(boolean fullscreen){
-        if(frame != null) frame.dispose();
+        if(frame != null) {
+            frame.dispose();
+            frame.getContentPane().remove(canvas);
+        }
         if(fullscreen){
             Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
             if(frame == null) {
                 frame = new JFrame("Attendance UI");
                 panel = new JPanel();
+                canvas = new UICanvas(dim.width, dim.height);
             }
             panel.setPreferredSize(dim);
-            canvas = new UICanvas(dim.width, dim.height);
+//            canvas = new UICanvas(dim.width, dim.height);
+            canvas.resizeCanvas(dim.width, dim.height);
 
 //            frame.add(panel);
 //            frame.pack();
@@ -60,6 +70,7 @@ public class Frame implements WindowFocusListener {
             frame.setUndecorated(true);
             frame.setLocationRelativeTo(null);
             frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+            frame.setResizable(false);
 
             frame.addWindowFocusListener(this);
             frame.setVisible(true);
@@ -67,17 +78,34 @@ public class Frame implements WindowFocusListener {
             Dimension dim = new Dimension(1200, 800);
             if(frame == null) {
                 frame = new JFrame("Attendance UI");
-                panel = new JPanel();
+                canvas = new UICanvas(dim.width, dim.height);
             }
-            panel.setPreferredSize(dim);
-            panel.setSize(dim);
-            canvas = new UICanvas(dim.width, dim.height);
+            panel = new JPanel();
+            panel.setPreferredSize(minimizedSize != null ? minimizedSize : dim);
+            panel.setSize(minimizedSize != null ? minimizedSize : dim);
+//            canvas = new UICanvas(dim.width, dim.height);
+            canvas.resizeCanvas(dim.width, dim.height);
             frame.setUndecorated(false);
 
-            frame.add(panel);
-            frame.pack();
-            frame.remove(panel);
+            if(minimizedSize != null){
+                frame.setState(JFrame.NORMAL);
+                frame.add(panel);
+                frame.pack();
+                frame.remove(panel);
+                frame.setSize(minimizedSize.width - 10, minimizedSize.height - 10);
+            }else{
+                frame.add(panel);
+                frame.pack();
+                frame.remove(panel);
+            }
+
+
+//            frame.add(panel);
+//            frame.pack();
+//            frame.remove(panel);
             frame.getContentPane().add(canvas);
+            frame.setResizable(false);
+
             frame.setState(JFrame.NORMAL);
 
             frame.setLocationRelativeTo(null);
@@ -119,14 +147,11 @@ public class Frame implements WindowFocusListener {
         if(e.getNewState() == 0){
             hasFocus = false;
         }
-
-        System.out.println("focus " + e.getNewState());
     }
 
     @Override
     public void windowLostFocus(WindowEvent e) {
         hasFocus = true;
-        System.out.println("gain");
     }
 
     public boolean hasFocus(){

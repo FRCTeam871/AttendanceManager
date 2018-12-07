@@ -30,6 +30,8 @@ public class SettingsMenu {
     private Main main;
     private GenericSense barcodeSensor;
 
+    private boolean lock = false;
+
     public SettingsMenu(Main main, GenericSense barcodeSensor){
         this.main = main;
         this.barcodeSensor = barcodeSensor;
@@ -45,15 +47,27 @@ public class SettingsMenu {
         });
         actions.put(new Pair<>("D8", "Set Date"), () -> {
             new Thread(() -> {
-                String res = JOptionPane.showInputDialog(main.frame.getCanvas(), "Enter a new date:");
-                if(res != null){
-                    Settings.setDate(res);
-                    main.sheetWrapper.updateDate();
+                lock = true;
+
+                String res = null;
+                while(true){
+                    res = JOptionPane.showInputDialog(main.frame.getCanvas(), (res != null) ? "\"" + res + "\" is not a valid date.\n" : "" + "Enter a new date:");
+                    if(res != null){
+                        if(main.sheetWrapper.checkValidDate(res)) {
+                            Settings.setDate(res);
+                            main.sheetWrapper.updateDate();
+                            break;
+                        }
+                    }else{
+                        break;
+                    }
                 }
+                lock = false;
             }).start();
         });
         actions.put(new Pair<>("SI", "Sign In By Name"), () -> {
             new Thread(() -> {
+                lock = true;
                 cancel: {
                     List<Row> rows;
                     String name = null;
@@ -77,6 +91,7 @@ public class SettingsMenu {
                         JOptionPane.showMessageDialog(main.frame.getCanvas(), "Signed in.");
                     }
                 }
+                lock = false;
             }).start();
         });
         actions.put(new Pair<>("FS", "Toggle Fullscreen"), () -> {
@@ -229,6 +244,10 @@ public class SettingsMenu {
         }catch (Exception e){
             System.err.println(e.getMessage());
         }
+    }
+
+    public boolean isLocked(){
+        return lock;
     }
 
 }
