@@ -1,2 +1,2 @@
-rootProject.name = 'excelparser'
-
+rootProject.name = 'RobotechTools'
+include 'AttendanceManager', 'ExcelParser', "Experimental"
