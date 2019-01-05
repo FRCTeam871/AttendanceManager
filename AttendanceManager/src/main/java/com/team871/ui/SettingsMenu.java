@@ -73,7 +73,7 @@ public class SettingsMenu {
                     do {
                         name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name of the member:");
                         if (name == null) break cancel;
-                    } while ((rows = attendanceManager.sheetWrapper.getRowByLastName(name)).isEmpty());
+                    } while ((rows = attendanceManager.sheetWrapper.getRowsByLastName(name)).isEmpty());
 
                     if (rows.size() > 1) {
                         Row row;

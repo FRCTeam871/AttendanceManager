@@ -1,16 +1,12 @@
 package com.team871.ui;
 
-import org.apache.poi.ss.usermodel.*;
 import com.team871.util.Settings;
+import org.apache.poi.ss.usermodel.*;
 
 import javax.swing.*;
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.*;
-import java.awt.*;
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.*;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.geom.AffineTransform;
@@ -18,7 +14,13 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.net.URL;
+import java.nio.file.Path;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,14 +30,26 @@ public class SheetWrapper implements MouseWheelListener {
     private File file;
 
     private Workbook workbook;
-    private Sheet sheet;
     private FormulaEvaluator eval;
     private DataFormatter formatter;
     private Font tableFont;
     private int firstRow;
     private int lastRow;
-    private Row headerRow;
     private int maxRow;
+
+    private Sheet attendanceSheet;
+    private Row headerRow;
+    private int lastNameColumn = -1;
+    private int firstNameColumn = -1;
+
+    private Sheet rosterSheet;
+    private Row rosterHeader;
+    private int sidColumn = -1;
+    private int rosterLastNameColumn = -1;
+    private int rosterFirstNameColumn = -1;
+
+
+
 
     private float destScroll = 0f;
     private float currScroll = 0f;
@@ -58,11 +72,11 @@ public class SheetWrapper implements MouseWheelListener {
 
     Pattern inTimePattern = Pattern.compile("in(\\d+):(\\d+)");
 
-    public SheetWrapper(URL u){
+    public SheetWrapper(Path u){
 
         try{
-            System.out.println("Loading sheet from URL: " + u);
-            this.file = new File(u.toURI());
+            System.out.println("Loading attendanceSheet from URL: " + u);
+            this.file = u.toFile();
             System.out.println("Loading File: " + file.getAbsolutePath());
             InputStream is = new FileInputStream(file);
             workbook = WorkbookFactory.create(is);
@@ -78,12 +92,10 @@ public class SheetWrapper implements MouseWheelListener {
             String using = Settings.getSheet();
             System.out.printf("Using Sheet: \"%s\"\n", using);
 
-            sheet = workbook.getSheet(using);
+            attendanceSheet = workbook.getSheet(using);
+            rosterSheet = workbook.getSheet(Settings.getRosterSheet());
 
             init();
-
-            setupSIDColumn(sheet, file);
-
         }catch(Exception e){
             e.printStackTrace();
         }
@@ -93,9 +105,11 @@ public class SheetWrapper implements MouseWheelListener {
         updateDate();
     }
 
-    private void init(){
+    private void init() {
+        headerRow = attendanceSheet.getRow(1);
 
-        headerRow = sheet.getRow(1);
+        configureRosterSheet();
+        configureAttendenceSheet();
 
         firstRow = -1;
         lastRow = -1;
@@ -112,9 +126,9 @@ public class SheetWrapper implements MouseWheelListener {
 
         maxRow = -1;
 
-        for(int i = headerRow.getRowNum(); i < sheet.getPhysicalNumberOfRows(); i++){
-            if(sheet.getRow(i) != null) {
-                String headerVal = formatCell(sheet.getRow(i).getCell(firstRow));
+        for(int i = headerRow.getRowNum(); i < attendanceSheet.getPhysicalNumberOfRows(); i++){
+            if(attendanceSheet.getRow(i) != null) {
+                String headerVal = formatCell(attendanceSheet.getRow(i).getCell(firstRow));
                 if (headerVal != null && !headerVal.isEmpty()) {
                     maxRow = i;
                 }
@@ -122,25 +136,107 @@ public class SheetWrapper implements MouseWheelListener {
         }
 
         clearCache();
-
     }
 
-    private void setupSIDColumn(Sheet sheet, File f) {
+    private void configureRosterSheet() {
+        rosterHeader = rosterSheet.getRow(1);
 
-        String testSIDColumn = formatCell(headerRow.getCell(lastRow));
-        if(testSIDColumn != null && testSIDColumn.equals("SID")) return;
+        for(int i = 0; i <= rosterHeader.getLastCellNum(); i++) {
+            Cell cell = rosterHeader.getCell(i);
+            final String headerVal = formatCell(cell);
+            if("SID".equalsIgnoreCase(headerVal)) {
+                sidColumn = i;
 
-        headerRow.createCell(lastRow + 1).setCellValue("SID");
+            } else if("Last".equalsIgnoreCase(headerVal)) {
+                rosterLastNameColumn = i;
+            } else if("First".equalsIgnoreCase(headerVal)) {
+                rosterFirstNameColumn = i;
+            }
+        }
 
-        for(int i = 2; i < sheet.getPhysicalNumberOfRows(); i++){
-            if(sheet.getRow(i) != null) {
-                String headerVal = formatCell(sheet.getRow(i).getCell(firstRow));
-                if (headerVal != null && !headerVal.isEmpty()) {
-                    sheet.getRow(i).createCell(lastRow + 1).setCellValue("");
+        if(sidColumn < 0) {
+            sidColumn = headerRow.getLastCellNum() + 1;
+
+            headerRow.createCell(sidColumn).setCellValue("SID");
+
+            for (int i = rosterHeader.getRowNum() + 1; i < rosterSheet.getPhysicalNumberOfRows(); i++) {
+                if (rosterSheet.getRow(i) != null) {
+                    rosterSheet.getRow(i).createCell(sidColumn).setCellValue("");
                 }
             }
         }
+
+        if(sidColumn < 0 || rosterFirstNameColumn < 0 || rosterLastNameColumn < 0) {
+            throw new IllegalStateException("Sheet is missing first/last/sid columns in roster");
+        }
     }
+
+    private void configureAttendenceSheet() {
+        headerRow = attendanceSheet.getRow(1);
+        for(int i = 0; i <= headerRow.getLastCellNum(); i++) {
+            Cell cell = headerRow.getCell(i);
+            final String headerVal = formatCell(cell);
+            if("Last".equalsIgnoreCase(headerVal)) {
+                lastNameColumn = i;
+            } else if("First".equalsIgnoreCase(headerVal)) {
+                firstNameColumn = i;
+            }
+        }
+    }
+
+    public String sidToName(String sid) {
+        for(int i = rosterHeader.getRowNum()+1; i <= rosterSheet.getPhysicalNumberOfRows(); i++) {
+            final Row currentRow = rosterSheet.getRow(i);
+            if(currentRow == null) continue;
+
+            final Cell sidCell = currentRow.getCell(sidColumn);
+            if(sidCell == null) continue;
+
+            final String cellSidValue = formatCell(sidCell);
+            if(cellSidValue == null || cellSidValue.isEmpty()) continue;
+
+            if(cellSidValue.equals(sid)) {
+                return getNameFromRow(currentRow, rosterFirstNameColumn, rosterLastNameColumn);
+            }
+        }
+
+        return null;
+    }
+
+    public String nameToSid(String name) {
+        final String[] parts = name.trim().split("\\s+");
+        if(parts.length != 2) {
+            throw new IllegalArgumentException("The name doesn't have two parts!");
+        }
+
+        for(int i = rosterHeader.getRowNum() + 1; i <= rosterSheet.getPhysicalNumberOfRows(); i++) {
+            final Row currentRow = rosterSheet.getRow(i);
+            final String maybeName = getNameFromRow(currentRow, rosterFirstNameColumn, rosterLastNameColumn);
+
+            if(name.equalsIgnoreCase(maybeName)) {
+                final Cell sidCell = currentRow.getCell(sidColumn);
+                if(sidCell == null) {
+                    break;
+                }
+
+                final String sid = formatCell(sidCell);
+                return sid == null || sid.isEmpty() ? null: sid;
+            }
+        }
+
+        return null;
+    }
+
+    private String getNameFromRow(Row r, int fNameColumn, int lNameColumn) {
+        final Cell firstNameCell = r.getCell(fNameColumn);
+        final Cell lastNameCell = r.getCell(lNameColumn);
+        if(firstNameCell == null || lastNameCell == null) {
+            return null;
+        }
+
+        return formatCell(firstNameCell) + " " + formatCell(lastNameCell);
+    }
+
 
     public void tick(int time){
         int maxScroll = (cellHeight * (maxRow - headerRow.getRowNum())) - renderHeight + 2;
@@ -331,13 +427,15 @@ public class SheetWrapper implements MouseWheelListener {
         clearCacheRow(row.getRowNum());
     }
 
-    public void setSIDByLastName(String lastName, String sid){
-        Row row = getRowByLastName(lastName).get(0);
-        if(row.getCell(lastRow) == null){
-            row.createCell(lastRow);
+    // TODO This should take a full name, or at least assert that the array is size 1
+    public void setSIDByLastName(String lastName, String sid) {
+        Row row = getRowByLastNameInternal(rosterSheet, rosterHeader.getRowNum(), rosterLastNameColumn, lastName).get(0);
+        if(row.getCell(sidColumn) == null){
+            row.createCell(sidColumn);
         }
-        row.getCell(lastRow).setCellType(CellType.STRING);
-        row.getCell(lastRow).setCellValue(sid);
+
+        row.getCell(sidColumn).setCellType(CellType.STRING);
+        row.getCell(sidColumn).setCellValue(sid);
         clearCacheRow(row.getRowNum());
     }
 
@@ -350,13 +448,13 @@ public class SheetWrapper implements MouseWheelListener {
     private String fetchCached(int r, int i) {
 
         if(cache == null){
-            return formatCell(sheet.getRow(r).getCell(i));
+            return formatCell(attendanceSheet.getRow(r).getCell(i));
         }
 
         int cr = r - headerRow.getRowNum();
         int ci = i - firstRow;
         if(cache[cr][ci] != null) return cache[cr][ci];
-        return cache[cr][ci] = formatCell(sheet.getRow(r).getCell(i));
+        return cache[cr][ci] = formatCell(attendanceSheet.getRow(r).getCell(i));
     }
 
     private void clearCache(){
@@ -366,7 +464,7 @@ public class SheetWrapper implements MouseWheelListener {
         }
 
         for(int rn = maxRow-1; rn >= headerRow.getRowNum(); rn--) {
-            for (Cell c : sheet.getRow(rn)) {
+            for (Cell c : attendanceSheet.getRow(rn)) {
                 if (c.getCellType() == CellType.FORMULA) {
                     eval.evaluateFormulaCell(c);
                 }
@@ -377,82 +475,92 @@ public class SheetWrapper implements MouseWheelListener {
     private void clearCacheRow(int r){
         cache[r - headerRow.getRowNum()] = new String[lastRow - firstRow + 1];
 
-        for (Cell c : sheet.getRow(r)) {
+        for (Cell c : attendanceSheet.getRow(r)) {
             if (c.getCellType() == CellType.FORMULA) {
                 eval.evaluateFormulaCell(c);
             }
         }
     }
 
-    public Row getRowBySID(String sid){
-        for(int i = headerRow.getRowNum() + 1; i < sheet.getPhysicalNumberOfRows(); i++){
-            Row r = sheet.getRow(i);
+    private Row getRowByNameInternal(Sheet s, int headerRow, int fNameIdx, int lNameIdx, String first, String last) {
+        if(first.isEmpty() || last.isEmpty()) return null;
+
+        for(int i = headerRow + 1; i < s.getPhysicalNumberOfRows(); i++){
+            final Row r = s.getRow(i);
             if(r == null) continue;
-            String headerVal = formatCell(r.getCell(lastRow));
-            if(headerVal != null && headerVal.equals(sid)){
+
+            final String fName = formatCell(r.getCell(fNameIdx));
+            final String lName = formatCell(r.getCell(lNameIdx));
+            if(first.equalsIgnoreCase(fName) && last.equalsIgnoreCase(lName)) {
                 return r;
             }
         }
+
         return null;
+    }
+
+    public Row getRowBySID(String sid) {
+        final String fullName = sidToName(sid);
+        if(fullName == null || fullName.isEmpty()) {
+            return null;
+        }
+
+        //TODO should null and size check this.
+        final String[] parts = fullName.split("\\s+");
+
+        return getRowByFullName(parts[0], parts[1]);
     }
 
     public Row getRowByFullName(String first, String last){
-        if(first.isEmpty() || last.isEmpty()) return null;
-        for(int i = headerRow.getRowNum() + 1; i < sheet.getPhysicalNumberOfRows(); i++){
-            Row r = sheet.getRow(i);
-            if(r == null) continue;
-            String headerVal = formatCell(r.getCell(firstRow+1));
-            String headerVal2 = formatCell(r.getCell(firstRow));
-            if((headerVal != null && headerVal.equalsIgnoreCase(first)) && (headerVal2 != null && headerVal2.equalsIgnoreCase(last))){
-                return r;
-            }
-        }
-        return null;
+        return getRowByNameInternal(attendanceSheet, headerRow.getRowNum(), firstNameColumn, lastNameColumn, first, last);
     }
 
-    public Row getRowWithNoSIDByFullName(String first, String last){
-        if(first.isEmpty() || last.isEmpty()) return null;
-        for(int i = headerRow.getRowNum() + 1; i < sheet.getPhysicalNumberOfRows(); i++){
-            Row r = sheet.getRow(i);
-            if(r == null) continue;
-            String headerVal = formatCell(r.getCell(firstRow+1));
-            String headerVal2 = formatCell(r.getCell(firstRow));
-            boolean hasSIDAlready = r.getCell(lastRow) != null && !formatCell(r.getCell(lastRow)).isEmpty();
-            if((headerVal != null && headerVal.equalsIgnoreCase(first)) && (headerVal2 != null && headerVal2.equalsIgnoreCase(last)) && !hasSIDAlready){
-                return r;
-            }
+    public Row getRowWithNoSIDByFullName(String first, String last) {
+        if(first.isEmpty() || last.isEmpty())
+            return null;
+
+        if(nameToSid(first + " " + last) != null) {
+            return null;
         }
-        return null;
+
+        return getRowByFullName(first, last);
     }
 
-    public List<Row> getRowByLastName(String name){
-        List<Row> ret = new ArrayList<>();
-        if(name.isEmpty()) return ret;
-        for(int i = headerRow.getRowNum() + 1; i < sheet.getPhysicalNumberOfRows(); i++){
-            Row r = sheet.getRow(i);
+    private List<Row> getRowByLastNameInternal(Sheet s, int headerIdx, int lNameIdx, String lName) {
+        if(lName.isEmpty())
+            return Collections.emptyList();
+
+        final List<Row> ret = new ArrayList<>();
+        for(int i = headerIdx + 1; i < s.getPhysicalNumberOfRows(); i++) {
+            Row r = s.getRow(i);
             if(r == null) continue;
-            String headerVal = formatCell(r.getCell(firstRow));
-            if(headerVal != null && headerVal.equalsIgnoreCase(name)){
+
+            String maybeLastName = formatCell(r.getCell(lNameIdx));
+            if(lName.equalsIgnoreCase(maybeLastName)) {
                 ret.add(r);
             }
         }
+
         return ret;
     }
 
-    public List<Row> getRowWithNoSIDByLastName(String name){
-        List<Row> ret = new ArrayList<>();
-        if(name.isEmpty()) return ret;
-        for(int i = headerRow.getRowNum() + 1; i < sheet.getPhysicalNumberOfRows(); i++){
-            Row r = sheet.getRow(i);
-            if(r == null) continue;
-            String headerVal = formatCell(r.getCell(firstRow));
-            //System.out.println("cell = " + r.getCell(lastRow) + "");
-            boolean hasSIDAlready = r.getCell(lastRow) != null && !formatCell(r.getCell(lastRow)).isEmpty();
-            if(headerVal != null && headerVal.equalsIgnoreCase(name) && !hasSIDAlready){
-                //System.out.println("previous val = \"" + formatCell(r.getCell(lastRow)) + "\"");
-                ret.add(r);
+    public List<Row> getRowsByLastName(String name) {
+        return getRowByLastNameInternal(attendanceSheet, headerRow.getRowNum(), lastNameColumn, name);
+    }
+
+    public List<Row> getRowWithNoSIDByLastName(String name) {
+        List<Row> ret = getRowByLastNameInternal(attendanceSheet, headerRow.getRowNum(), lastNameColumn, name);
+
+        //TODO: There is a potential bug here if the rows are out of order between the two sheets
+        for(int i = ret.size()-1; i >= 0; i--) {
+            final String maybeSid = nameToSid(formatCell(ret.get(i).getCell(firstNameColumn)) + " " + name);
+
+            // Throw away anyone who'se already got an SID
+            if(maybeSid != null && !maybeSid.isEmpty()) {
+                ret.remove(i);
             }
         }
+
         return ret;
     }
 
@@ -467,8 +575,8 @@ public class SheetWrapper implements MouseWheelListener {
         return formatter.formatCellValue(c, eval);
     }
 
-    public Sheet getSheet(){
-        return sheet;
+    public Sheet getAttendanceSheet(){
+        return attendanceSheet;
     }
 
     public int getColumnIndexByName(String label){
@@ -513,7 +621,7 @@ public class SheetWrapper implements MouseWheelListener {
     }
 
     public boolean isSignedInByLastName(String lastName){
-        Row row = getRowByLastName(lastName).get(0);
+        Row row = getRowsByLastName(lastName).get(0);
         if(row != null && currentDateColumn != -1){
             String val = formatCell(row.getCell(currentDateColumn));
             if(val != null && val.startsWith("in")){
@@ -547,7 +655,7 @@ public class SheetWrapper implements MouseWheelListener {
     }
 
     public boolean isSignedOutByLastName(String lastName){
-        Row row = getRowByLastName(lastName).get(0);
+        Row row = getRowsByLastName(lastName).get(0);
         if(row != null && currentDateColumn != -1){
             String val = formatCell(row.getCell(currentDateColumn));
             if(val != null && !val.startsWith("in") && !val.isEmpty()){
@@ -581,7 +689,7 @@ public class SheetWrapper implements MouseWheelListener {
     }
 
     public boolean signInByLastName(String lastName){
-        Row row = getRowByLastName(lastName).get(0);
+        Row row = getRowsByLastName(lastName).get(0);
         if(row != null && currentDateColumn != -1){
             unsaved = true;
             row.getCell(currentDateColumn).setCellValue("in" + dateFormat.format(new Date()));
@@ -643,7 +751,7 @@ public class SheetWrapper implements MouseWheelListener {
     public boolean signOutByLastName(String lastName){
         if(!isSignedInByLastName(lastName)) return false;
 
-        Row row = getRowByLastName(lastName).get(0);
+        Row row = getRowsByLastName(lastName).get(0);
         if(row != null && currentDateColumn != -1){
             unsaved = true;
             String val = formatCell(row.getCell(currentDateColumn));
@@ -713,7 +821,7 @@ public class SheetWrapper implements MouseWheelListener {
     }
 
     public boolean setPresentByLastName(String last, boolean present){
-        Row row = getRowByLastName(last).get(0);
+        Row row = getRowsByLastName(last).get(0);
         if(row != null && currentDateColumn != -1){
             unsaved = true;
             clearCacheRow(row.getRowNum());
@@ -808,8 +916,8 @@ public class SheetWrapper implements MouseWheelListener {
     public void showNotSignedOutDialog() {
         boolean anyoneNotSignedOut = false;
 
-        out: for(int i = headerRow.getRowNum() + 1; i < sheet.getPhysicalNumberOfRows(); i++){
-            Row r = sheet.getRow(i);
+        out: for(int i = headerRow.getRowNum() + 1; i < attendanceSheet.getPhysicalNumberOfRows(); i++){
+            Row r = attendanceSheet.getRow(i);
             if(r == null) continue;
             for(int c = firstRow + 1; c < lastRow-1; c++){
                 Cell cell = r.getCell(c);
@@ -826,8 +934,8 @@ public class SheetWrapper implements MouseWheelListener {
 
             switch(result){
                 case JOptionPane.YES_OPTION:
-                    out: for(int i = headerRow.getRowNum() + 1; i < sheet.getPhysicalNumberOfRows(); i++){
-                        Row r = sheet.getRow(i);
+                    out: for(int i = headerRow.getRowNum() + 1; i < attendanceSheet.getPhysicalNumberOfRows(); i++){
+                        Row r = attendanceSheet.getRow(i);
                         if(r == null) continue;
                         Cell cell = r.getCell(currentDateColumn);
                         try{
@@ -848,6 +956,5 @@ public class SheetWrapper implements MouseWheelListener {
                     break;
             }
         }
-
     }
 }

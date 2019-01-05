@@ -135,7 +135,7 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
 
         barcodeSensor.addListener(this);
 
-        sheetWrapper = new SheetWrapper(Settings.getSheetURL());
+        sheetWrapper = new SheetWrapper(Settings.getSheetPath());
         frame.addMouseWheelListener(sheetWrapper);
 
         frame.addKeyListener(this);
@@ -583,8 +583,8 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
     }
 
     boolean isValidSID(String test){
-        if(!test.matches("^\\d+(\\d+)?$")) return false; //is numeric
-        if(!(test.length() == 5 || test.length() == 6)) return false; // must be 5 or 6 digits
+        if(!test.matches("^F?\\d+(\\d+)?$")) return false; //is numeric
+        if(test.length() < 5 || test.length() > 7) return false; // must be 5 or 6 digits
 
         return true;
     }

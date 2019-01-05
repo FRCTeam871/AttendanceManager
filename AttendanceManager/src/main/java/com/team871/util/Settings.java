@@ -3,9 +3,9 @@ package com.team871.util;
 import com.team871.ui.Mode;
 
 import java.io.*;
-import java.net.MalformedURLException;
 import java.net.URISyntaxException;
-import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -16,8 +16,7 @@ public class Settings {
 
     private static String date;
     private static String jposXmlPath;
-    private static String rawSheetURL;
-    private static URL sheetURL;
+    private static Path sheetPath;
     private static Mode mode;
     private static String sheet;
     private static boolean fun;
@@ -38,35 +37,12 @@ public class Settings {
         Settings.jposXmlPath = jposXmlPath.replace("%HOME%", System.getProperty("user.home"));
     }
 
-    public static URL getSheetURL() {
-        return sheetURL;
+    public static Path getSheetPath() {
+        return sheetPath;
     }
 
-    public static void setSheetURL(URL sheetURL) {
-        Settings.sheetURL = sheetURL;
-    }
-
-    public static void setSheetURL(String sheetURL) {
-        Settings.rawSheetURL = sheetURL;
-        if(sheetURL.startsWith("%RES%")){
-            Settings.sheetURL = Settings.class.getClassLoader().getResource(sheetURL.substring(5));
-        }else if(sheetURL.startsWith("%REL%")){
-            try {
-                File f = new File(new File(Settings.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParentFile(), sheetURL.substring(5));
-
-                Settings.sheetURL = f.toURI().toURL();
-            }catch (URISyntaxException e) {
-                e.printStackTrace();
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
-        }else {
-            try{
-                Settings.sheetURL = new URL(sheetURL);
-            }catch(MalformedURLException e){
-                e.printStackTrace();
-            }
-        }
+    public static void setSheetPath(String path) {
+        sheetPath = Paths.get(path);
     }
 
     public static Mode getMode(){
@@ -97,7 +73,7 @@ public class Settings {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("M/d");
         setDate(LocalDate.now().format(fmt));
         setJposXmlPath("%HOME%\\jpos.xml");
-        setSheetURL("%RES%att.xlsx");
+        setSheetPath("att.xlsx");
         setMode(Mode.IN_ONLY);
         setSheet("Build Season");
         setFun(true);
@@ -107,7 +83,7 @@ public class Settings {
         List<String> ret = new ArrayList<>();
         ret.add("Date = \"" + getDate() + "\"");
         ret.add("jpos.xml Path = \"" + getJposXmlPath() + "\"");
-        ret.add("Sheet URL = \"" + getSheetURL() + "\"");
+        ret.add("Sheet URL = \"" + getSheetPath() + "\"");
         ret.add("Mode = " + Settings.getMode());
         ret.add("Sheet = " + Settings.getSheet());
         return ret;
@@ -156,7 +132,7 @@ public class Settings {
     public static void savePreferences(File file) throws IOException {
         System.out.println("saving preferences to " + file.getAbsolutePath());
         try(BufferedWriter bw = new BufferedWriter(new FileWriter(file))) {
-            bw.write(rawSheetURL + "\n");
+            bw.write(sheetPath + "\n");
             bw.write(getJposXmlPath() + "\n");
             bw.write(mode.toString() + "\n");
             bw.write(getSheet() + "\n");
@@ -166,7 +142,7 @@ public class Settings {
 
     public static void loadPreferences(File file) throws IOException {
         BufferedReader br = new BufferedReader(new FileReader(file));
-        setSheetURL(br.readLine());
+        setSheetPath(br.readLine());
         setJposXmlPath(br.readLine());
         setMode(Mode.valueOf(br.readLine()));
         setSheet(br.readLine());
@@ -174,4 +150,7 @@ public class Settings {
         br.close();
     }
 
+    public static String getRosterSheet() {
+        return "Roster";
+    }
 }
