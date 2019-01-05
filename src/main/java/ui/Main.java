@@ -1,6 +1,6 @@
 package ui;
 
-import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.Row;
 import sensing.BarcodeResult;
 import sensing.GenericSense;
 import sensing.JPOSSense;
@@ -11,8 +11,6 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.Color;
-import java.awt.Font;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.WindowEvent;
@@ -21,6 +19,9 @@ import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.RescaleOp;
 import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,11 +55,25 @@ public class Main implements ResultListener, KeyListener, WindowListener {
     private boolean settingsMode = false;
     private Clip yeatim;
 
+    private int clearTimerMax = 60 * 4;
+    private int clearTimer = clearTimerMax;
+
     public static void main(String[] args){
-        new Main();
+        new Main(args);
     }
 
-    private Main(){
+    private Main(String[] args){
+        System.out.println("inJar = " + Settings.inJar());
+        if(Settings.inJar()) {
+            try {
+                ClasspathUtils.loadJarDll("lib/CSJPOSScanner64.dll");
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (URISyntaxException e) {
+                e.printStackTrace();
+            }
+        }
+
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (ClassNotFoundException e) {
@@ -70,13 +85,20 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         } catch (UnsupportedLookAndFeelException e) {
             e.printStackTrace();
         }
-        init();
+
+        init(args);
         run();
     }
 
-    private void init(){
+    private void init(String[] args){
 
         Settings.init();
+
+        if(args.length > 0){
+            Settings.setPrefsFile(new File(args[0]));
+        }else{
+            Settings.setPrefsFile(Settings.getDefaultPrefsFile());
+        }
 
         barcodeSensor = new JPOSSense();
 
@@ -118,6 +140,25 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         frame.addWindowListener(this);
 
         frame.setVisible(true);
+
+        frame.canvas.addKeyListener(new KeyListener() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+
+            }
+
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if(e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown() && e.isAltDown()){
+                    playYeaTim();
+                }
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+
+            }
+        });
     }
 
     private void run(){
@@ -190,6 +231,17 @@ public class Main implements ResultListener, KeyListener, WindowListener {
         sheetWrapper.tick(time);
         settings.tick();
 
+        if(clearTimer > 0){
+            clearTimer--;
+            if(clearTimer == 0){
+                clearTimer = -1;
+                lastResult = null;
+                lastName = "";
+                lastSID = "???";
+                barcodeSensor.resetCache();
+            }
+        }
+
         time++;
     }
 
@@ -253,7 +305,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
         List<String> lines = new ArrayList<>();
         lines.add("Scanned: " + (lastResult == null ? "???" : lastResult.getText()));
-        lines.add("SID: " + lastSID);
+        lines.add("SID (hash): " + lastSID);
         if(!lastSID.equalsIgnoreCase("???")) lines.add("Name: " + lastName);
 
         for(int i = 0; i < lines.size(); i++){
@@ -373,18 +425,66 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
         if(settingsMode) return;
 
-        lastResult = result;
+
+        clearTimer = clearTimerMax;
+
+
+
+        String osid = result.getText().replaceFirst("^0+(?!$)", ""); // remove leading zeros;
+        String sid;
+
+        if(isValidSID(osid)) {
+            lastResult = new BarcodeResult("(hidden student id)", result.getTime());
+        }else{
+            lastResult = result;
+        }
+
         lastName = "...";
 
-        String sid = result.getText().replaceFirst("^0+(?!$)", ""); // remove leading zeros;
-        if(isValidSID(sid)) {
+        if(isValidSID(osid)) {
+            String newSid = osid;
+            try {
+                MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+                messageDigest.update(newSid.getBytes());
+                String encryptedString = new String(messageDigest.digest());
+                encryptedString = newSid.hashCode() + "";
+                System.out.println("hash = " + encryptedString);
+                //newSid = encryptedString;
+            }catch(Exception e){
+                e.printStackTrace();
+            }
+
+            sid = newSid;
+
             lastSID = sid;
             if(sheetWrapper.getRowBySID(sid) != null) {
-                if (!sheetWrapper.isPresent(sid)) {
-                    sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
-                    if (sheetWrapper.setPresent(sid, true)) {
-                        flashTimer = flashTimerMax;
+                if (Settings.getMode() == Mode.IN_ONLY) {
+                    if (!sheetWrapper.isPresent(sid)) {
+                        sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
+                        if(barcodeSensor instanceof JPOSSense){
+                            ((JPOSSense) barcodeSensor).dance();
+                        }
+
+                        if (sheetWrapper.setPresent(sid, true)) {
+                            flashTimer = flashTimerMax;
+                        }
+
                     }
+                } else if (Settings.getMode() == Mode.IN_OUT) {
+                    sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
+                    if(barcodeSensor instanceof JPOSSense){
+                        ((JPOSSense) barcodeSensor).dance();
+                    }
+                    if (!sheetWrapper.isSignedIn(sid) && !sheetWrapper.isSignedOut(sid)) {
+                        if (sheetWrapper.signInBySID(sid)) {
+                            flashTimer = flashTimerMax;
+                        }
+                    }else if(sheetWrapper.isSignedIn(sid)){
+                        if(sheetWrapper.signOutBySID(sid)){
+                            flashTimer = flashTimerMax;
+                        }
+                    }
+
                 }
                 lastName = sheetWrapper.getFullnameBySID(sid);
             }else if(!enteringNewSID){
@@ -392,13 +492,12 @@ public class Main implements ResultListener, KeyListener, WindowListener {
                 new Thread(() -> {
                     int response = JOptionPane.showConfirmDialog(frame.getCanvas(), "The scanned ID is not present in the system.\nAdd it?", frame.frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
                     cancel: if(response == JOptionPane.YES_OPTION){
-                        //TODO: Case if there's multiple people with the same last name
                         List<Row> rows;
                         String name = null;
                         do {
                             name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name for the member associated with this ID:");
                             if(name == null) break cancel;
-                        } while((rows = sheetWrapper.getRowByLastName(name)).isEmpty());
+                        } while((rows = sheetWrapper.getRowWithNoSIDByLastName(name)).isEmpty());
 
                         if(rows.size() > 1){
                             Row row;
@@ -406,17 +505,38 @@ public class Main implements ResultListener, KeyListener, WindowListener {
                             do {
                                 firstName = JOptionPane.showInputDialog((firstName != null ? "That name is not present.\n" : "") + "There are multiple people with that last name!\nEnter the first name for the member associated with this ID:");
                                 if(firstName == null) break cancel;
-                            } while((row = sheetWrapper.getRowByFullName(firstName, name)) == null);
+                            } while((row = sheetWrapper.getRowWithNoSIDByFullName(firstName, name)) == null);
 
                             sheetWrapper.setSIDByFullName(firstName, name, sid);
                         }else {
                             sheetWrapper.setSIDByLastName(name, sid);
                         }
 
-                        if (!sheetWrapper.isPresent(sid)) {
+                        if (Settings.getMode() == Mode.IN_ONLY) {
+                            if (!sheetWrapper.isPresent(sid)) {
+                                sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
+                                if(barcodeSensor instanceof JPOSSense){
+                                    ((JPOSSense) barcodeSensor).dance();
+                                }
+
+                                if (sheetWrapper.setPresent(sid, true)) {
+                                    flashTimer = flashTimerMax;
+                                }
+
+                            }
+                        } else if (Settings.getMode() == Mode.IN_OUT) {
                             sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
-                            if (sheetWrapper.setPresent(sid, true)) {
-                                flashTimer = flashTimerMax;
+                            if(barcodeSensor instanceof JPOSSense){
+                                ((JPOSSense) barcodeSensor).dance();
+                            }
+                            if (!sheetWrapper.isSignedIn(sid) && !sheetWrapper.isSignedOut(sid)) {
+                                if (sheetWrapper.signInBySID(sid)) {
+                                    flashTimer = flashTimerMax;
+                                }
+                            }else if(sheetWrapper.isSignedIn(sid)){
+                                if(sheetWrapper.signOutBySID(sid)){
+                                    flashTimer = flashTimerMax;
+                                }
                             }
                         }
                     }
@@ -452,7 +572,7 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
     private void handleAdmin(BarcodeResult result) {
         String cmd = result.getText().substring("A871L%4$9Z-".length());
-        System.out.println(cmd);
+        //System.out.println(cmd);
         switch(cmd){
             case "SETTINGS":
                 settingsMode = !settingsMode;
@@ -468,6 +588,9 @@ public class Main implements ResultListener, KeyListener, WindowListener {
     }
 
     void showSaveDialog(){
+
+        sheetWrapper.showNotSignedOutDialog();
+
         JFileChooser chooser = new JFileChooser();
         chooser.setSelectedFile(sheetWrapper.getFile());
         chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
@@ -565,11 +688,12 @@ public class Main implements ResultListener, KeyListener, WindowListener {
 
     private void playYeaTim(){
         try {
-            if (yeatim == null){
-                yeatim = AudioSystem.getClip();
-            }else{
-                yeatim.close();
-            }
+//            if (yeatim == null){
+//                yeatim = AudioSystem.getClip();
+//            }else{
+//                yeatim.close();
+//            }
+            yeatim = AudioSystem.getClip();
 
             AudioInputStream inputStream = AudioSystem.getAudioInputStream(SettingsMenu.class.getClassLoader().getResource("tim.wav"));
             yeatim.open(inputStream);

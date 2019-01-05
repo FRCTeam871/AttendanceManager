@@ -23,7 +23,7 @@ public class Frame implements WindowFocusListener {
     private void init(){
         setFullscreen(false);
         minimizedSize = frame.getSize();
-        System.out.println("min " + minimizedSize);
+        //System.out.println("min " + minimizedSize);
         setFullscreen(true);
 
 //        Point loc = frame.getLocationOnScreen();

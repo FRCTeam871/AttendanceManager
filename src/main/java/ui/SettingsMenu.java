@@ -65,7 +65,7 @@ public class SettingsMenu {
                 lock = false;
             }).start();
         });
-        actions.put(new Pair<>("SI", "Sign In By Name"), () -> {
+        actions.put(new Pair<>("SI", "Sign In/Out By Name"), () -> {
             new Thread(() -> {
                 lock = true;
                 cancel: {
@@ -84,11 +84,31 @@ public class SettingsMenu {
                             if (firstName == null) break cancel;
                         } while ((row = main.sheetWrapper.getRowByFullName(firstName, name)) == null);
 
-                        main.sheetWrapper.setPresentByFullName(firstName, name, true);
-                        JOptionPane.showMessageDialog(main.frame.getCanvas(), "Signed in.");
+                        if(Settings.getMode() == Mode.IN_ONLY) {
+                            main.sheetWrapper.setPresentByFullName(firstName, name, true);
+                            JOptionPane.showMessageDialog(main.frame.getCanvas(), "Signed in.");
+                        }else if(Settings.getMode() == Mode.IN_OUT){
+                            if(main.sheetWrapper.isSignedInByFullName(firstName, name) && !main.sheetWrapper.isSignedOutByFullName(firstName, name)){
+                                main.sheetWrapper.signOutByFullName(firstName, name);
+                                JOptionPane.showMessageDialog(main.frame.getCanvas(), "Signed out.");
+                            }else {
+                                main.sheetWrapper.signInByFullName(firstName, name);
+                                JOptionPane.showMessageDialog(main.frame.getCanvas(), "Signed in.");
+                            }
+                        }
                     } else {
-                        main.sheetWrapper.setPresentByLastName(name, true);
-                        JOptionPane.showMessageDialog(main.frame.getCanvas(), "Signed in.");
+                        if(Settings.getMode() == Mode.IN_ONLY) {
+                            main.sheetWrapper.setPresentByLastName(name, true);
+                            JOptionPane.showMessageDialog(main.frame.getCanvas(), "Signed in.");
+                        }else if(Settings.getMode() == Mode.IN_OUT){
+                            if(main.sheetWrapper.isSignedInByLastName(name) && !main.sheetWrapper.isSignedOutByLastName(name)){
+                                main.sheetWrapper.signOutByLastName(name);
+                                JOptionPane.showMessageDialog(main.frame.getCanvas(), "Signed out.");
+                            }else {
+                                main.sheetWrapper.signInByLastName(name);
+                                JOptionPane.showMessageDialog(main.frame.getCanvas(), "Signed in.");
+                            }
+                        }
                     }
                 }
                 lock = false;

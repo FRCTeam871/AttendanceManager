@@ -5,15 +5,17 @@ import jpos.Scanner;
 import jpos.events.*;
 import jpos.util.JposPropertiesConst;
 import ui.Settings;
+import ui.SettingsMenu;
 
 import javax.imageio.ImageIO;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
 import java.awt.*;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Random;
 
 public class JPOSSense extends GenericSense implements ErrorListener, DataListener, StatusUpdateListener {
 
@@ -26,8 +28,13 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
     Image img;
     Image img2;
 
+    int danceTimer = 0;
+    Image[] danceFrames;
+    Clip coolSound;
+
     public JPOSSense(){
         String jposXmlPath = Settings.getJposXmlPath();
+        System.out.println(getClass().getClassLoader().getResource("tim.wav"));
         System.out.println("Looking for jpos.xml at " + jposXmlPath);
         System.setProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, jposXmlPath);
 
@@ -53,6 +60,17 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
         try {
             img2 = ImageIO.read(JPOSSense.class.getClassLoader().getResource("tim.jpg"));
         }catch(Exception e){}
+
+
+        danceFrames = new Image[12];
+        for(int i = 0; i < 12; i++){
+            try {
+                danceFrames[i] = ImageIO.read(JPOSSense.class.getClassLoader().getResource("dance/frame (" + (i+1) + ").gif"));
+            }catch(Exception e){
+                e.printStackTrace();
+            }
+        }
+
     }
 
     void startConnectThread(){
@@ -104,18 +122,25 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
         String s = "Scan a Barcode!";
         g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
 
+        g.setColor(Color.WHITE);
         int pos = 0;
         for(int i = 0; i < s.length(); i++){
             String ch = s.substring(i, i+1);
-            g.setColor(rainbowColor(0.005, i * -50));
-            g.drawString(ch, width - 400 + (int)(Math.cos((System.currentTimeMillis() + 50*i) / 200.0) * 5) + pos, 50 + (int)(Math.sin((System.currentTimeMillis() + 50*i) / 200.0) * 5));
+            if(Settings.getFun()) g.setColor(rainbowColor(0.005, i * -50));
+            int xOfs = !Settings.getFun() ? 0 : (int)(Math.cos((System.currentTimeMillis() + 50*i) / 200.0) * 5);
+            int yOfs = !Settings.getFun() ? 0 : (int)(Math.sin((System.currentTimeMillis() + 50*i) / 200.0) * 5);
+            g.drawString(ch, width - 400 + xOfs + pos, 50 + yOfs);
             pos += g.getFontMetrics().stringWidth(ch);
         }
 
         double sc = Math.sin(System.currentTimeMillis() / 200.0) * 0.1 + 1.1;
         sc = 1.0;
 
-        g.drawImage((cachedResult != null && cachedResult.getText().equalsIgnoreCase("871")) ? img2 : img, (int)(width/2 - (width*sc)/2), 0, (int)(width * sc), height, null);
+        if(danceTimer > 0){
+            g.drawImage(danceFrames[(int)((System.currentTimeMillis() / 50) % danceFrames.length)], (int) (width / 2 - (width * 1) / 2), 0, (int) (width * 1), height, null);
+        }else {
+            g.drawImage((cachedResult != null && cachedResult.getText().equalsIgnoreCase("871")) ? img2 : img, (int) (width / 2 - (width * sc) / 2), 0, (int) (width * sc), height, null);
+        }
     }
 
     @Override
@@ -128,7 +153,7 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
         try {
             Scanner scn = (Scanner) e.getSource();
             String data = new String(scn.getScanData());
-            System.out.println(data);
+            //System.out.println(data);
             buffer = data;
             send = true;
             scn.setDataEventEnabled(true);
@@ -173,6 +198,35 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
 //        System.out.println(red + " " + green + " " + blue);
 
         return new Color(red / 255f, green / 255f, blue / 255f);
+    }
+
+    @Override
+    public void update() {
+        super.update();
+        if(danceTimer > 0) danceTimer--;
+    }
+
+    public void dance(){
+        if(!Settings.getFun()) return;
+        danceTimer = 240;
+        playGoodAudio();
+    }
+
+    private void playGoodAudio(){
+        try {
+            if (coolSound == null){
+                coolSound = AudioSystem.getClip();
+            }else{
+                coolSound.close();
+            }
+
+            AudioInputStream inputStream = AudioSystem.getAudioInputStream(SettingsMenu.class.getClassLoader().getResource("dance" + new Random().nextInt(3) + ".wav"));
+            coolSound.open(inputStream);
+            coolSound.setFramePosition(0);
+            coolSound.start();
+        }catch (Exception e){
+            System.err.println(e.getMessage());
+        }
     }
 
 }
