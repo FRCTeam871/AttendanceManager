@@ -26,6 +26,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class SheetWrapper implements MouseWheelListener {
+    private static final Pattern inTimePattern = Pattern.compile("in(\\d+):(\\d+)");
+    private static final DateFormat dateFormat = new SimpleDateFormat("H:mm");
 
     private File file;
 
@@ -49,11 +51,8 @@ public class SheetWrapper implements MouseWheelListener {
     private int rosterFirstNameColumn = -1;
 
 
-
-
     private float destScroll = 0f;
     private float currScroll = 0f;
-    private int renderWidth;
     private int renderHeight;
     private int cellHeight = 25;
 
@@ -68,13 +67,9 @@ public class SheetWrapper implements MouseWheelListener {
 
     private boolean unsaved = false;
 
-    DateFormat dateFormat = new SimpleDateFormat("H:mm");
 
-    Pattern inTimePattern = Pattern.compile("in(\\d+):(\\d+)");
-
-    public SheetWrapper(Path u){
-
-        try{
+    public SheetWrapper(Path u) {
+        try {
             System.out.println("Loading attendanceSheet from URL: " + u);
             this.file = u.toFile();
             System.out.println("Loading File: " + file.getAbsolutePath());
@@ -284,7 +279,7 @@ public class SheetWrapper implements MouseWheelListener {
     public void drawTable(Graphics2D g, int width, int height, int time){
 
         //TODO: this is kinda hacky
-        this.renderWidth = width;
+        int renderWidth = width;
         this.renderHeight = height;
 
 //        g.setColor(Color.BLUE);
@@ -417,11 +412,16 @@ public class SheetWrapper implements MouseWheelListener {
         }
     }
 
-    public void setSIDByFullName(String firstName, String lastName, String sid){
-        Row row = getRowByFullName(firstName, lastName);
-        if(row.getCell(lastRow) == null){
+    public void setSIDByFullName(String firstName, String lastName, String sid) {
+        Row row = getRowByNameInternal(rosterSheet, rosterHeader.getRowNum(), rosterFirstNameColumn, rosterLastNameColumn, firstName, lastName);
+        if(row == null) {
+            throw new IllegalArgumentException(firstName + " " + lastName + " was not found!");
+        }
+
+        if(row.getCell(lastRow) == null) {
             row.createCell(lastRow);
         }
+
         row.getCell(lastRow).setCellType(CellType.STRING);
         row.getCell(lastRow).setCellValue(sid);
         clearCacheRow(row.getRowNum());
@@ -437,12 +437,6 @@ public class SheetWrapper implements MouseWheelListener {
         row.getCell(sidColumn).setCellType(CellType.STRING);
         row.getCell(sidColumn).setCellValue(sid);
         clearCacheRow(row.getRowNum());
-    }
-
-    public String getFullnameBySID(String sid){
-        Row row = getRowBySID(sid);
-        if(row == null) return "";
-        return formatCell(row.getCell(firstRow + 1)) + " " + formatCell(row.getCell(firstRow));
     }
 
     private String fetchCached(int r, int i) {
@@ -575,11 +569,7 @@ public class SheetWrapper implements MouseWheelListener {
         return formatter.formatCellValue(c, eval);
     }
 
-    public Sheet getAttendanceSheet(){
-        return attendanceSheet;
-    }
-
-    public int getColumnIndexByName(String label){
+    public int getColumnIndexByName(String label) {
         for(int i = firstRow; i <= lastRow; i++) {
             Cell cell = headerRow.getCell(i);
             final String headerVal = formatCell(cell);
@@ -587,6 +577,7 @@ public class SheetWrapper implements MouseWheelListener {
                 if(headerVal.equals(label)) return i;
             }
         }
+
         return -1;
     }
 
@@ -859,22 +850,6 @@ public class SheetWrapper implements MouseWheelListener {
             return val != null && !val.isEmpty();
         }
         return false;
-    }
-
-    public double getHours(String sid){
-        Row row = getRowBySID(sid);
-        if(row != null && currentDateColumn != -1){
-            String val = formatCell(row.getCell(currentDateColumn));
-
-            if(val != null){
-                try{
-                    return Double.parseDouble(val);
-                } catch(NumberFormatException e){
-                    return 0.0;
-                }
-            }
-        }
-        return 0.0;
     }
 
     @Override
