@@ -667,11 +667,19 @@ public class SheetWrapper implements MouseWheelListener {
         return false;
     }
 
+    private void setCell(Row r, int columnIdx, String value) {
+        Cell c = r.getCell(columnIdx);
+        if(c == null) {
+            c = r.createCell(columnIdx);
+        }
+        c.setCellValue(value);
+    }
+
     public boolean signInBySID(String sid){
         Row row = getRowBySID(sid);
         if(row != null && currentDateColumn != -1){
             unsaved = true;
-            row.getCell(currentDateColumn).setCellValue("in" + dateFormat.format(new Date()));
+            setCell(row, currentDateColumn, "in" + dateFormat.format(new Date()));
             clearCacheRow(row.getRowNum());
             return true;
         }
@@ -683,7 +691,7 @@ public class SheetWrapper implements MouseWheelListener {
         Row row = getRowsByLastName(lastName).get(0);
         if(row != null && currentDateColumn != -1){
             unsaved = true;
-            row.getCell(currentDateColumn).setCellValue("in" + dateFormat.format(new Date()));
+            setCell(row, currentDateColumn, "in" + dateFormat.format(new Date()));
             clearCacheRow(row.getRowNum());
             return true;
         }
@@ -695,7 +703,7 @@ public class SheetWrapper implements MouseWheelListener {
         Row row = getRowByFullName(firstName, lastName);
         if(row != null && currentDateColumn != -1){
             unsaved = true;
-            row.getCell(currentDateColumn).setCellValue("in" + dateFormat.format(new Date()));
+            setCell(row, currentDateColumn, "in" + dateFormat.format(new Date()));
             clearCacheRow(row.getRowNum());
             return true;
         }

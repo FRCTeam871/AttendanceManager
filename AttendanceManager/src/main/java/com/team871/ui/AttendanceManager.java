@@ -1,12 +1,12 @@
 package com.team871.ui;
 
-import org.apache.poi.ss.usermodel.Row;
 import com.team871.sensing.BarcodeResult;
 import com.team871.sensing.GenericSense;
 import com.team871.sensing.JPOSSense;
 import com.team871.sensing.ResultListener;
 import com.team871.util.ClasspathUtils;
 import com.team871.util.Settings;
+import org.apache.poi.ss.usermodel.Row;
 
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -488,7 +488,7 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
                     }
 
                 }
-                lastName = sheetWrapper.getFullnameBySID(sid);
+                lastName = sheetWrapper.sidToName(sid);
             }else if(!enteringNewSID){
                 enteringNewSID = true;
                 new Thread(() -> {
@@ -542,7 +542,7 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
                             }
                         }
                     }
-                    lastName = sheetWrapper.getFullnameBySID(sid);
+                    lastName = sheetWrapper.sidToName(sid);
                     enteringNewSID = false;
                 }).start();
             }
