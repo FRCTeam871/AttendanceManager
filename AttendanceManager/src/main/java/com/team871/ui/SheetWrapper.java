@@ -28,6 +28,7 @@ import java.util.regex.Pattern;
 public class SheetWrapper implements MouseWheelListener {
     private static final Pattern inTimePattern = Pattern.compile("in(\\d+):(\\d+)");
     private static final DateFormat dateFormat = new SimpleDateFormat("H:mm");
+    public static final float NAME_COL_WIDTH = 100f;
 
     private File file;
 
@@ -35,8 +36,8 @@ public class SheetWrapper implements MouseWheelListener {
     private FormulaEvaluator eval;
     private DataFormatter formatter;
     private Font tableFont;
-    private int firstRow;
-    private int lastRow;
+    private int firstCol;
+    private int lastCol;
     private int maxRow;
 
     private Sheet attendanceSheet;
@@ -66,7 +67,7 @@ public class SheetWrapper implements MouseWheelListener {
     private int scrollAcc = 0;
 
     private boolean unsaved = false;
-
+    private Rectangle dimension;
 
     public SheetWrapper(Path u) {
         try {
@@ -96,8 +97,6 @@ public class SheetWrapper implements MouseWheelListener {
         }
 
         tableFont = new Font("Arial", Font.BOLD, 12);
-
-        updateDate();
     }
 
     private void init() {
@@ -106,16 +105,17 @@ public class SheetWrapper implements MouseWheelListener {
         configureRosterSheet();
         configureAttendenceSheet();
 
-        firstRow = -1;
-        lastRow = -1;
+        firstCol = -1;
+        lastCol = -1;
         for(int i = 0; i <= headerRow.getLastCellNum(); i++) {
             Cell cell = headerRow.getCell(i);
-            final String headerVal = formatCell(cell);
-            if(headerVal != null && !headerVal.isEmpty()) {
-                if(firstRow == -1){
-                    firstRow = i;
+            final String cellVal = formatCell(cell);
+            if(cellVal != null && !cellVal.isEmpty()) {
+                if(firstCol == -1){
+                    firstCol = i;
                 }
-                if(i > lastRow) lastRow = i;
+
+                if(i > lastCol) lastCol = i;
             }
         }
 
@@ -123,7 +123,7 @@ public class SheetWrapper implements MouseWheelListener {
 
         for(int i = headerRow.getRowNum(); i < attendanceSheet.getPhysicalNumberOfRows(); i++){
             if(attendanceSheet.getRow(i) != null) {
-                String headerVal = formatCell(attendanceSheet.getRow(i).getCell(firstRow));
+                String headerVal = formatCell(attendanceSheet.getRow(i).getCell(firstCol));
                 if (headerVal != null && !headerVal.isEmpty()) {
                     maxRow = i;
                 }
@@ -131,6 +131,7 @@ public class SheetWrapper implements MouseWheelListener {
         }
 
         clearCache();
+        updateDate();
     }
 
     private void configureRosterSheet() {
@@ -234,7 +235,7 @@ public class SheetWrapper implements MouseWheelListener {
 
 
     public void tick(int time){
-        int maxScroll = (cellHeight * (maxRow - headerRow.getRowNum())) - renderHeight + 2;
+        int maxScroll = (cellHeight * (maxRow - headerRow.getRowNum())) - dimension.height + 2;
 //        System.out.println(renderHeight);
 
         if(highlightTimer == 0){
@@ -276,25 +277,12 @@ public class SheetWrapper implements MouseWheelListener {
 
     String[][] cache;
 
-    public void drawTable(Graphics2D g, int width, int height, int time){
+    private double getCellWidth() {
+        return (dimension.width - (NAME_COL_WIDTH * 2f)) / ((lastCol - firstCol + 2) + 1f);
+    }
 
-        //TODO: this is kinda hacky
-        int renderWidth = width;
-        this.renderHeight = height;
-
-//        g.setColor(Color.BLUE);
-//        g.drawRect(10, 10, 20, 20);
-
-//        g.fillRect(0, 0, width, height);
-
+    public void drawTable(Graphics2D g, int time) {
         int startingRow = headerRow.getRowNum();
-
-        float nameColWidth = 100f;
-
-        boolean showSIDCol = true;
-
-        float cellW = (width - nameColWidth*2f) / ((lastRow - (showSIDCol ? 0 : 1)) - (firstRow+2) + 1f);
-
         int ofsY = (int)currScroll;
 
         AffineTransform oTrans = g.getTransform();
@@ -302,113 +290,113 @@ public class SheetWrapper implements MouseWheelListener {
         g.setColor(Color.BLACK);
         g.setFont(tableFont);
         // bottom to top
-        r: for(int r = maxRow-1; r >= startingRow; r--) {
+        int cy = (maxRow-startingRow-1)*cellHeight;
+
+        for (int r = maxRow - 1; r >= startingRow; r--) {
             g.setTransform(oTrans);
-            if(r > startingRow) g.translate(0, ofsY);
-            int y = r - startingRow;
-
-            for (int i = firstRow; i <= lastRow - (showSIDCol ? 0 : 1); i++) {
-                int x = i - firstRow;
-
-                final String headerVal = fetchCached(r, i);
-
-                double hours = 0.0;
-                if(headerVal != null && !headerVal.isEmpty()){
-                    try{
-                        hours = Double.parseDouble(headerVal);
-                    }catch(NumberFormatException e){}
-                }
-                boolean present = headerVal != null && hours > 0;
-
-                boolean hasValue = headerVal != null && !headerVal.isEmpty();
-
-                int cx;
-                if(i <= firstRow + 1){
-                    cx = (int)(x * nameColWidth);
-                }else{
-                    cx = (int)(nameColWidth * 2 + (x-2)*cellW);
-                }
-                int cy = y * cellHeight;
-                int cw = (i <= firstRow + 1) ? (int)nameColWidth : (int)cellW;
-                int ch = cellHeight;
-
-                g.setColor(r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE);
-
-                if(i == currentDateColumn){
-                    if(Settings.getMode() == Mode.IN_OUT && headerVal != null && headerVal.startsWith("in")){
-                        g.setColor(Color.ORANGE);
-                    }else if(present){
-                        g.setColor(Color.GREEN);
-                    }else {
-                        g.setColor(CURRENT_DATE_COL);
-                    }
-                }else if(i > firstRow + 1 && i < currentDateColumn && r > startingRow){
-                    if(!hasValue) {
-                        g.setColor(r % 2 == 0 ? ABSENT_EVEN : ABSENT_ODD);
-                    }else{
-                        g.setColor(r % 2 == 0 ? PRESENT_EVEN : PRESENT_ODD);
-                    }
-                }else if(i > currentDateColumn && i < lastRow - 1 && r > 1){
-                    g.setColor(Color.GRAY);
-                }
-
-                if(highlightRow != null && r == highlightRow.getRowNum()){
-                    if(i <= firstRow + 1){
-                        g.setColor(Color.YELLOW);
-                    }else if(i == currentDateColumn){
-                        g.fillRect(cx, cy, cw, ch);
-
-                        int localMax = highlightTimerMax / 2;
-
-                        int timer = highlightTimerMax - highlightTimer - highlightTimerMax/4;
-                        if(timer < 0) timer = 0;
-                        if(timer > localMax) timer = localMax;
-
-                        float th = (timer)/(float)localMax * (float)Math.PI * 2f;
-                        float a = (float)(-Math.cos(th)+1)/2f;
-
-                        g.setColor(new Color(0f, 1f, 0f, a));
-                    }else if(i < currentDateColumn){
-                        g.fillRect(cx, cy, cw, ch);
-
-                        int localMax = highlightTimerMax / 2;
-
-                        float thruBar = (i-2f) / (float)(currentDateColumn-2f);
-
-                        int timer = highlightTimerMax - highlightTimer - (int)(thruBar*highlightTimerMax/4);
-                        if(timer < 0) timer = 0;
-                        if(timer > localMax) timer = localMax;
-
-                        float th = (timer)/(float)localMax * (float)Math.PI * 2f;
-                        float a = (float)(-Math.cos(th)+1)/2f;
-
-                        g.setColor(new Color(0f, 1f, 0f, a / 2f));
-                    }
-                }
-
-                g.fillRect(cx, cy, cw, ch);
-                g.setColor(Color.BLACK);
-                g.drawRect(cx, cy, cw, ch);
-
-                if(i > firstRow + 1 && i <= currentDateColumn && r > startingRow){
-                    if(Settings.getMode() == Mode.IN_OUT){
-
-                        String val = headerVal;
-
-                        Matcher matcher = inTimePattern.matcher(val);
-                        if(matcher.matches()) {
-                            val = "In " + Integer.parseInt(matcher.group(1))%12 + ":" + matcher.group(2);
-                        }
-
-                        g.drawString(val, cx + 4, cy + ch/2 + g.getFont().getSize()/2);
-                    }
-                }else{
-                    if (hasValue) {
-                        g.drawString(headerVal, cx + 4, cy + ch/2 + g.getFont().getSize()/2);
-                    }
-                }
-
+            if (r > startingRow) {
+                g.translate(0, ofsY);
             }
+
+            drawRow(g, cy, 0, r);
+            cy -= cellHeight;
+        }
+    }
+
+    private void drawRow(Graphics g, int cy, int cx, int r) {
+        for (int i = firstCol; i <= lastCol; i++) {
+            final String cellVal = fetchCached(r, i);
+
+            double hours = 0.0;
+            if(cellVal != null && !cellVal.isEmpty()){
+                try{
+                    hours = Double.parseDouble(cellVal);
+                }catch(NumberFormatException e){}
+            }
+            boolean present = cellVal != null && hours > 0;
+
+            boolean hasValue = cellVal != null && !cellVal.isEmpty();
+
+            int cw = (i <= firstCol + 1) ? (int)NAME_COL_WIDTH : (int)getCellWidth();
+            int ch = cellHeight;
+
+            g.setColor(r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE);
+
+            if(i == currentDateColumn){
+                if(Settings.getMode() == Mode.IN_OUT && cellVal != null && cellVal.startsWith("in")){
+                    g.setColor(Color.ORANGE);
+                }else if(present){
+                    g.setColor(Color.GREEN);
+                }else {
+                    g.setColor(CURRENT_DATE_COL);
+                }
+            }else if(i > firstCol + 1 && i < currentDateColumn && r > headerRow.getRowNum()) {
+                if(!hasValue) {
+                    g.setColor(r % 2 == 0 ? ABSENT_EVEN : ABSENT_ODD);
+                }else{
+                    g.setColor(r % 2 == 0 ? PRESENT_EVEN : PRESENT_ODD);
+                }
+            }else if(i > currentDateColumn && i < lastCol - 1 && r > 1){
+                g.setColor(Color.GRAY);
+            }
+
+            if(highlightRow != null && r == highlightRow.getRowNum()){
+                if(i <= firstCol + 1){
+                    g.setColor(Color.YELLOW);
+                }else if(i == currentDateColumn){
+                    g.fillRect(cx, cy, cw, ch);
+
+                    int localMax = highlightTimerMax / 2;
+
+                    int timer = highlightTimerMax - highlightTimer - highlightTimerMax/4;
+                    if(timer < 0) timer = 0;
+                    if(timer > localMax) timer = localMax;
+
+                    float th = (timer)/(float)localMax * (float)Math.PI * 2f;
+                    float a = (float)(-Math.cos(th)+1)/2f;
+
+                    g.setColor(new Color(0f, 1f, 0f, a));
+                }else if(i < currentDateColumn){
+                    g.fillRect(cx, cy, cw, ch);
+
+                    int localMax = highlightTimerMax / 2;
+
+                    float thruBar = (i-2f) / (currentDateColumn-2f);
+
+                    int timer = highlightTimerMax - highlightTimer - (int)(thruBar*highlightTimerMax/4);
+                    if(timer < 0) timer = 0;
+                    if(timer > localMax) timer = localMax;
+
+                    float th = (timer)/(float)localMax * (float)Math.PI * 2f;
+                    float a = (float)(-Math.cos(th)+1)/2f;
+
+                    g.setColor(new Color(0f, 1f, 0f, a / 2f));
+                }
+            }
+
+            g.fillRect(cx, cy, cw, ch);
+            g.setColor(Color.BLACK);
+            g.drawRect(cx, cy, cw, ch);
+
+            if(i > firstCol + 1 && i <= currentDateColumn && r > headerRow.getRowNum()){
+                if(Settings.getMode() == Mode.IN_OUT){
+
+                    String val = cellVal;
+
+                    Matcher matcher = inTimePattern.matcher(val);
+                    if(matcher.matches()) {
+                        val = "In " + Integer.parseInt(matcher.group(1))%12 + ":" + matcher.group(2);
+                    }
+
+                    g.drawString(val, cx + 4, cy + ch/2 + g.getFont().getSize()/2);
+                }
+            }else{
+                if (hasValue) {
+                    g.drawString(cellVal, cx + 4, cy + ch/2 + g.getFont().getSize()/2);
+                }
+            }
+
+            cx += cw;
         }
     }
 
@@ -418,12 +406,12 @@ public class SheetWrapper implements MouseWheelListener {
             throw new IllegalArgumentException(firstName + " " + lastName + " was not found!");
         }
 
-        if(row.getCell(lastRow) == null) {
-            row.createCell(lastRow);
+        if(row.getCell(lastCol) == null) {
+            row.createCell(lastCol);
         }
 
-        row.getCell(lastRow).setCellType(CellType.STRING);
-        row.getCell(lastRow).setCellValue(sid);
+        row.getCell(lastCol).setCellType(CellType.STRING);
+        row.getCell(lastCol).setCellValue(sid);
         clearCacheRow(row.getRowNum());
     }
 
@@ -446,7 +434,7 @@ public class SheetWrapper implements MouseWheelListener {
         }
 
         int cr = r - headerRow.getRowNum();
-        int ci = i - firstRow;
+        int ci = i - firstCol;
         if(cache[cr][ci] != null) return cache[cr][ci];
         return cache[cr][ci] = formatCell(attendanceSheet.getRow(r).getCell(i));
     }
@@ -454,7 +442,7 @@ public class SheetWrapper implements MouseWheelListener {
     private void clearCache(){
         cache = new String[maxRow - headerRow.getRowNum() + 1][];
         for(int i = 0; i < cache.length; i++){
-            cache[i] = new String[lastRow - firstRow + 1];
+            cache[i] = new String[lastCol - firstCol + 1];
         }
 
         for(int rn = maxRow-1; rn >= headerRow.getRowNum(); rn--) {
@@ -467,7 +455,7 @@ public class SheetWrapper implements MouseWheelListener {
     }
 
     private void clearCacheRow(int r){
-        cache[r - headerRow.getRowNum()] = new String[lastRow - firstRow + 1];
+        cache[r - headerRow.getRowNum()] = new String[lastCol - firstCol + 1];
 
         for (Cell c : attendanceSheet.getRow(r)) {
             if (c.getCellType() == CellType.FORMULA) {
@@ -570,7 +558,7 @@ public class SheetWrapper implements MouseWheelListener {
     }
 
     public int getColumnIndexByName(String label) {
-        for(int i = firstRow; i <= lastRow; i++) {
+        for(int i = firstCol; i <= lastCol; i++) {
             Cell cell = headerRow.getCell(i);
             final String headerVal = formatCell(cell);
             if(headerVal != null && !headerVal.isEmpty()) {
@@ -902,7 +890,7 @@ public class SheetWrapper implements MouseWheelListener {
         out: for(int i = headerRow.getRowNum() + 1; i < attendanceSheet.getPhysicalNumberOfRows(); i++){
             Row r = attendanceSheet.getRow(i);
             if(r == null) continue;
-            for(int c = firstRow + 1; c < lastRow-1; c++){
+            for(int c = firstCol + 1; c < lastCol -1; c++){
                 Cell cell = r.getCell(c);
                 String val = formatCell(cell);
                 if(val != null && val.startsWith("in")){
@@ -924,7 +912,7 @@ public class SheetWrapper implements MouseWheelListener {
                         try{
                             String val = formatCell(cell);
                             if(val != null && val.startsWith("in")){
-                                signOutBySID(formatCell(r.getCell(lastRow)));
+                                signOutBySID(formatCell(r.getCell(lastCol)));
                             }
                         }catch(IllegalStateException e){
                             e.printStackTrace(); // "value changed"
@@ -939,5 +927,9 @@ public class SheetWrapper implements MouseWheelListener {
                     break;
             }
         }
+    }
+
+    public void setDimension(Rectangle dimension) {
+        this.dimension = dimension;
     }
 }
