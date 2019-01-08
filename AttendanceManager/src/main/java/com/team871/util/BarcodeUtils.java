@@ -72,6 +72,6 @@ public class BarcodeUtils {
 
     public static boolean isSettingsCommand(BarcodeResult br) {
         final String text = br.getText();
-        return (text == null || text.isEmpty() || !text.startsWith(SETTINGS_CODE_PREFIX));
+        return !(text == null || text.isEmpty() || !text.startsWith(SETTINGS_CODE_PREFIX));
     }
 }

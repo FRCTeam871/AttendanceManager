@@ -19,8 +19,6 @@ import java.awt.event.KeyListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.awt.geom.AffineTransform;
-import java.awt.image.BufferedImage;
-import java.awt.image.RescaleOp;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -70,22 +68,14 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
         if(Settings.inJar()) {
             try {
                 ClasspathUtils.loadJarDll("lib/CSJPOSScanner64.dll");
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (URISyntaxException e) {
+            } catch (IOException | URISyntaxException e) {
                 e.printStackTrace();
             }
         }
 
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } catch (InstantiationException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (UnsupportedLookAndFeelException e) {
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
             e.printStackTrace();
         }
 
@@ -303,66 +293,6 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
 
     private void renderSettings(Graphics2D g) {
         settings.render(g, frame.getCanvas().getWidth(), frame.getCanvas().getHeight());
-    }
-
-    public int getTime() {
-        return time;
-    }
-
-    private BufferedImage doFiltering(BufferedImage src){
-        BufferedImage out = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_RGB);
-
-        RescaleOp rescale = new RescaleOp(2.0f,20.0f, null);
-        out = rescale.filter(src,null);
-
-        for(int x = 0; x < src.getWidth(); x++){
-            for(int y = 0; y < src.getHeight(); y++){
-                int rgb = out.getRGB(x, y);
-                int r = (rgb >> 16) & 0x000000FF;
-                int g = (rgb >>8 ) & 0x000000FF;
-                int b = (rgb) & 0x000000FF;
-                float[] hsv = new float[3];
-                Color.RGBtoHSB(r, g, b, hsv);
-                out.setRGB(x, y, Color.HSBtoRGB(0, 0, (float)scaleValue(hsv[2])));
-            }
-        }
-
-
-        return out;
-    }
-
-    double scaleValue(double in){
-//        double out = (Math.pow(2*in - 1 + 0.1, 1/1.32) + 1) / 2.0;
-
-        double out = 0;
-        if(in < 0.75){
-            out = 0;
-        }else{
-            out = 1;
-        }
-
-        if(out < 0) out = 0;
-        if(out > 1) out = 1;
-
-        return out;
-    }
-
-    BufferedImage flip(BufferedImage img){
-        AffineTransform at = new AffineTransform();
-        at.concatenate(AffineTransform.getScaleInstance(-1, 1));
-        at.concatenate(AffineTransform.getTranslateInstance(-img.getWidth(), 0));
-        return createTransformed(img, at);
-    }
-
-    private BufferedImage createTransformed(BufferedImage image, AffineTransform at){
-        BufferedImage newImage = new BufferedImage(
-                image.getWidth(), image.getHeight(),
-                BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = newImage.createGraphics();
-        g.transform(at);
-        g.drawImage(image, 0, 0, null);
-        g.dispose();
-        return newImage;
     }
 
     @Override
@@ -646,11 +576,6 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
 
     private void playYeaTim(){
         try {
-//            if (yeatim == null){
-//                yeatim = AudioSystem.getClip();
-//            }else{
-//                yeatim.close();
-//            }
             yeatim = AudioSystem.getClip();
 
             AudioInputStream inputStream = AudioSystem.getAudioInputStream(SettingsMenu.class.getClassLoader().getResource("audio/tim.wav"));
