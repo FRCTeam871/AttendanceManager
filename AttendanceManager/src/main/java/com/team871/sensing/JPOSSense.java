@@ -1,11 +1,13 @@
 package com.team871.sensing;
 
+import com.team871.util.BarcodeUtils;
 import jpos.JposException;
 import jpos.Scanner;
 import jpos.events.*;
 import jpos.util.JposPropertiesConst;
 import com.team871.util.Settings;
 import com.team871.ui.SettingsMenu;
+import net.sourceforge.barbecue.Barcode;
 
 import javax.imageio.ImageIO;
 import javax.sound.sampled.AudioInputStream;
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.Random;
 
 public class JPOSSense extends GenericSense implements ErrorListener, DataListener, StatusUpdateListener {
+    private static final Font FONT = new Font(Font.MONOSPACED, Font.BOLD, 32);
 
     String buffer = "";
     boolean send = false;
@@ -114,33 +117,31 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
 
     @Override
     public void renderPreview(Graphics2D g, int width, int height) {
-        g.setColor(Color.BLUE);
+        g.setColor(Color.LIGHT_GRAY);
         g.fillRect(0, 0, width, height);
         g.setColor(Color.GREEN);
 
         g.setColor(Color.BLUE);
         String s = "Scan a Barcode!";
-        g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
+        g.setFont(FONT);
 
         g.setColor(Color.WHITE);
+        int sWidth = g.getFontMetrics().stringWidth(s);
         int pos = 0;
         for(int i = 0; i < s.length(); i++){
             String ch = s.substring(i, i+1);
             if(Settings.getFun()) g.setColor(rainbowColor(0.005, i * -50));
             int xOfs = !Settings.getFun() ? 0 : (int)(Math.cos((System.currentTimeMillis() + 50*i) / 200.0) * 5);
             int yOfs = !Settings.getFun() ? 0 : (int)(Math.sin((System.currentTimeMillis() + 50*i) / 200.0) * 5);
-            g.drawString(ch, width - 400 + xOfs + pos, 50 + yOfs);
+            g.drawString(ch, (width/2) - (sWidth/2) + xOfs + pos, 50 + yOfs);
             pos += g.getFontMetrics().stringWidth(ch);
         }
 
-        double sc = Math.sin(System.currentTimeMillis() / 200.0) * 0.1 + 1.1;
-        sc = 1.0;
+        Barcode b = BarcodeUtils.getBarcodeByName("Sign In/Out by Name");
+        BarcodeUtils.drawBarcode(b, g, (width/2)-(b.getWidth()/2) ,100);
 
-        if(danceTimer > 0){
-            g.drawImage(danceFrames[(int)((System.currentTimeMillis() / 50) % danceFrames.length)], (int) (width / 2 - (width * 1) / 2), 0, (int) (width * 1), height, null);
-        }else {
-            g.drawImage((cachedResult != null && cachedResult.getText().equalsIgnoreCase("871")) ? img2 : img, (int) (width / 2 - (width * sc) / 2), 0, (int) (width * sc), height, null);
-        }
+        b = BarcodeUtils.getBarcodeByName("Toggle Fullscreen");
+        BarcodeUtils.drawBarcode(b, g, (width/2) - (b.getWidth()/2), height-100);
     }
 
     @Override

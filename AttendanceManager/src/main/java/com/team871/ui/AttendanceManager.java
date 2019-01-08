@@ -4,6 +4,7 @@ import com.team871.sensing.BarcodeResult;
 import com.team871.sensing.GenericSense;
 import com.team871.sensing.JPOSSense;
 import com.team871.sensing.ResultListener;
+import com.team871.util.BarcodeUtils;
 import com.team871.util.ClasspathUtils;
 import com.team871.util.Settings;
 import org.apache.poi.ss.usermodel.Row;
@@ -107,32 +108,6 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
         frame = new Frame();
         settings = new SettingsMenu(this, barcodeSensor);
 
-//        new Thread(() -> {
-//            try {
-//                Webcam webcam = Webcam.getWebcams().get(0);
-////              webcam.setCustomViewSizes(new Dimension[]{new Dimension(1280,720)});
-////              webcam.setViewSize(new Dimension(1280,720));
-//                webcam.setViewSize(WebcamResolution.QVGA.getSize());
-//                webcam.open(true);
-//
-//                imageProvider = new WebcamImageProvider(webcam);
-//            }catch(Exception e){
-//                e.printStackTrace();
-//            }
-//        }).start();
-
-//        try {
-//            imageProvider = new FileImageProvider(new File("C:\\barcode.png"));
-//        }catch(Exception e){
-//            e.printStackTrace();
-//        }
-
-//        OneDReader reader = new MultiFormatOneDReader(new HashMap(){{put(DecodeHintType.TRY_HARDER, Boolean.TRUE);}});
-//        barcodeSensor = new ImageSense(reader, imageProvider);
-
-//        barcodeSensor = new KeyboardSense();
-//        frame.addKeyListener((KeyboardSense)barcodeSensor);
-
         barcodeSensor.addListener(this);
 
         sheetWrapper = new SheetWrapper(Settings.getSheetPath());
@@ -219,13 +194,6 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
     }
 
     private void tick() {
-
-//        if(time % 30 == 0){ // update every 30 ticks (twice per second)
-//            BufferedImage img = imageProvider.getImage();
-//            img = doFiltering(img);
-//            barcodeSensor.update(img);
-//        }
-
         if(flashTimer > 0) flashTimer--;
 
         barcodeSensor.update();
@@ -247,10 +215,8 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
         time++;
     }
 
-    private void render(){
-
+    private void render() {
         Graphics2D g = frame.getCanvas().getRenderGraphics();
-//        g.clearRect(0, 0, frame.getCanvas().getDimensions().width, frame.getCanvas().getDimensions().height);
 
         if(settingsMode){
             renderSettings(g);
@@ -315,7 +281,6 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
         }
 
         Rectangle tableRect = new Rectangle(padding, (int)(dim.height * 0.4 + padding + padding), (int)(dim.width - padding*2), (int)((dim.height) - (dim.height * 0.4 + padding + padding) - padding));
-//        System.out.println(tableRect.height);
         g.setColor(Color.LIGHT_GRAY);
         g.setStroke(new BasicStroke(8f));
         g.drawRect(tableRect.x, tableRect.y, tableRect.width, tableRect.height);
@@ -327,8 +292,6 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
         tr = g.getTransform();
         g.setClip(tableRect);
         g.translate(tableRect.x, tableRect.y);
-
-//        g.fillRect(0, 0, 1000, 1000);
 
         sheetWrapper.drawTable(g, tableRect.width, tableRect.height, time);
 
@@ -361,13 +324,6 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
                 float[] hsv = new float[3];
                 Color.RGBtoHSB(r, g, b, hsv);
                 out.setRGB(x, y, Color.HSBtoRGB(0, 0, (float)scaleValue(hsv[2])));
-//                if(hsv[2] < 0.5){
-//                    out.setRGB(x, y, Color.HSBtoRGB(0, 0, 0));
-//                }else if(hsv[2] < 0.8){
-//                    out.setRGB(x, y, Color.HSBtoRGB(0, 0, 0.25f));
-//                }else {
-//                    out.setRGB(x, y, Color.HSBtoRGB(0, 0, 1));
-//                }
             }
         }
 
@@ -417,7 +373,7 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
 
         if(settingsMode && settings.isLocked()) return;
 
-        if(result.getText().startsWith(SettingsMenu.SETTINGS_CODE_PREFIX)){
+        if(BarcodeUtils.isSettingsCommand(result)) {
             return;
         }
 
@@ -561,7 +517,7 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
 
         if(settingsMode && settings.isLocked()) return;
 
-        if(result.getText().startsWith(SettingsMenu.SETTINGS_CODE_PREFIX)){
+        if(BarcodeUtils.isSettingsCommand(result)){
             settings.handleResult(result);
             return;
         }
