@@ -286,7 +286,7 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
 //        g.fillRect(0, 0, 1000, 1000);
 
         sheetWrapper.setDimension(tableRect);
-        sheetWrapper.drawTable(g, time);
+        sheetWrapper.drawTable(g);
 
         g.setTransform(tr);
 
