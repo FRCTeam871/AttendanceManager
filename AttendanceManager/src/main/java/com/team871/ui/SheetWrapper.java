@@ -281,7 +281,7 @@ public class SheetWrapper implements MouseWheelListener {
     String[][] cache;
 
     private double getCellWidth() {
-        return ((dimension.width - (NAME_COL_WIDTH * 2f)) / (lastCol - firstNameColumn))+1;
+        return ((dimension.width - (NAME_COL_WIDTH * 2f)) / (lastCol - firstNameColumn));
     }
 
     public void drawTable(Graphics2D g) {
@@ -289,9 +289,9 @@ public class SheetWrapper implements MouseWheelListener {
         g.setFont(tableFont);
 
         int cy = cellHeight;
-        g.translate(0, currScroll);
 
         final AffineTransform oTrans = g.getTransform();
+        g.translate(0, currScroll);
         for (int r = headerRow.getRowNum() + 1; r <= maxRow; r++) {
             drawRow(g, cy, 0, r);
             cy += cellHeight;
