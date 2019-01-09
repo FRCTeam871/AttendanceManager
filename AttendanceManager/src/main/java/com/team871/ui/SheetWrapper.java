@@ -236,7 +236,6 @@ public class SheetWrapper implements MouseWheelListener {
 
     public void tick(int time){
         int maxScroll = (cellHeight * (maxRow - headerRow.getRowNum())) - dimension.height + 2;
-//        System.out.println(renderHeight);
 
         if(highlightTimer == 0){
             highlightRow = null;
@@ -861,7 +860,7 @@ public class SheetWrapper implements MouseWheelListener {
             FileOutputStream out = new FileOutputStream(saveTo);
             workbook.write(out); // write the workbook to the file
             out.close();
-        }catch(Exception e) {
+        } catch(Exception e) {
             e.printStackTrace();
             return false;
         }
@@ -887,20 +886,18 @@ public class SheetWrapper implements MouseWheelListener {
     public void showNotSignedOutDialog() {
         boolean anyoneNotSignedOut = false;
 
-        out: for(int i = headerRow.getRowNum() + 1; i < attendanceSheet.getPhysicalNumberOfRows(); i++){
+        for(int i = headerRow.getRowNum() + 1; i < attendanceSheet.getPhysicalNumberOfRows(); i++){
             Row r = attendanceSheet.getRow(i);
             if(r == null) continue;
-            for(int c = firstCol + 1; c < lastCol -1; c++){
-                Cell cell = r.getCell(c);
-                String val = formatCell(cell);
-                if(val != null && val.startsWith("in")){
-                    anyoneNotSignedOut = true;
-                    break out;
-                }
+            Cell cell = r.getCell(currentDateColumn);
+            String val = formatCell(cell);
+            if(val != null && val.startsWith("in")){
+                anyoneNotSignedOut = true;
+                break;
             }
         }
 
-        if(anyoneNotSignedOut){
+        if(anyoneNotSignedOut) {
             int result = JOptionPane.showConfirmDialog(null, "There are people that haven't signed out.\nDo you want to sign them out?\n(If not, sign in time will be saved)", "Attendance Manager", JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
 
             switch(result){

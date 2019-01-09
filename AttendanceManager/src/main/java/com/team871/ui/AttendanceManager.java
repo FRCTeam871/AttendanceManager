@@ -4,6 +4,7 @@ import com.team871.sensing.BarcodeResult;
 import com.team871.sensing.GenericSense;
 import com.team871.sensing.JPOSSense;
 import com.team871.sensing.ResultListener;
+import com.team871.util.BarcodeUtils;
 import com.team871.util.ClasspathUtils;
 import com.team871.util.Settings;
 import org.apache.poi.ss.usermodel.Row;
@@ -18,8 +19,6 @@ import java.awt.event.KeyListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.awt.geom.AffineTransform;
-import java.awt.image.BufferedImage;
-import java.awt.image.RescaleOp;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -69,22 +68,14 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
         if(Settings.inJar()) {
             try {
                 ClasspathUtils.loadJarDll("lib/CSJPOSScanner64.dll");
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (URISyntaxException e) {
+            } catch (IOException | URISyntaxException e) {
                 e.printStackTrace();
             }
         }
 
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } catch (InstantiationException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (UnsupportedLookAndFeelException e) {
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
             e.printStackTrace();
         }
 
@@ -106,32 +97,6 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
 
         frame = new Frame();
         settings = new SettingsMenu(this, barcodeSensor);
-
-//        new Thread(() -> {
-//            try {
-//                Webcam webcam = Webcam.getWebcams().get(0);
-////              webcam.setCustomViewSizes(new Dimension[]{new Dimension(1280,720)});
-////              webcam.setViewSize(new Dimension(1280,720));
-//                webcam.setViewSize(WebcamResolution.QVGA.getSize());
-//                webcam.open(true);
-//
-//                imageProvider = new WebcamImageProvider(webcam);
-//            }catch(Exception e){
-//                e.printStackTrace();
-//            }
-//        }).start();
-
-//        try {
-//            imageProvider = new FileImageProvider(new File("C:\\barcode.png"));
-//        }catch(Exception e){
-//            e.printStackTrace();
-//        }
-
-//        OneDReader reader = new MultiFormatOneDReader(new HashMap(){{put(DecodeHintType.TRY_HARDER, Boolean.TRUE);}});
-//        barcodeSensor = new ImageSense(reader, imageProvider);
-
-//        barcodeSensor = new KeyboardSense();
-//        frame.addKeyListener((KeyboardSense)barcodeSensor);
 
         barcodeSensor.addListener(this);
 
@@ -219,13 +184,6 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
     }
 
     private void tick() {
-
-//        if(time % 30 == 0){ // update every 30 ticks (twice per second)
-//            BufferedImage img = imageProvider.getImage();
-//            img = doFiltering(img);
-//            barcodeSensor.update(img);
-//        }
-
         if(flashTimer > 0) flashTimer--;
 
         barcodeSensor.update();
@@ -247,10 +205,8 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
         time++;
     }
 
-    private void render(){
-
+    private void render() {
         Graphics2D g = frame.getCanvas().getRenderGraphics();
-//        g.clearRect(0, 0, frame.getCanvas().getDimensions().width, frame.getCanvas().getDimensions().height);
 
         if(settingsMode){
             renderSettings(g);
@@ -315,7 +271,6 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
         }
 
         Rectangle tableRect = new Rectangle(padding, (int)(dim.height * 0.4 + padding + padding), (int)(dim.width - padding*2), (int)((dim.height) - (dim.height * 0.4 + padding + padding) - padding));
-//        System.out.println(tableRect.height);
         g.setColor(Color.LIGHT_GRAY);
         g.setStroke(new BasicStroke(8f));
         g.drawRect(tableRect.x, tableRect.y, tableRect.width, tableRect.height);
@@ -343,73 +298,6 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
         settings.render(g, frame.getCanvas().getWidth(), frame.getCanvas().getHeight());
     }
 
-    public int getTime() {
-        return time;
-    }
-
-    private BufferedImage doFiltering(BufferedImage src){
-        BufferedImage out = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_RGB);
-
-        RescaleOp rescale = new RescaleOp(2.0f,20.0f, null);
-        out = rescale.filter(src,null);
-
-        for(int x = 0; x < src.getWidth(); x++){
-            for(int y = 0; y < src.getHeight(); y++){
-                int rgb = out.getRGB(x, y);
-                int r = (rgb >> 16) & 0x000000FF;
-                int g = (rgb >>8 ) & 0x000000FF;
-                int b = (rgb) & 0x000000FF;
-                float[] hsv = new float[3];
-                Color.RGBtoHSB(r, g, b, hsv);
-                out.setRGB(x, y, Color.HSBtoRGB(0, 0, (float)scaleValue(hsv[2])));
-//                if(hsv[2] < 0.5){
-//                    out.setRGB(x, y, Color.HSBtoRGB(0, 0, 0));
-//                }else if(hsv[2] < 0.8){
-//                    out.setRGB(x, y, Color.HSBtoRGB(0, 0, 0.25f));
-//                }else {
-//                    out.setRGB(x, y, Color.HSBtoRGB(0, 0, 1));
-//                }
-            }
-        }
-
-
-        return out;
-    }
-
-    double scaleValue(double in){
-//        double out = (Math.pow(2*in - 1 + 0.1, 1/1.32) + 1) / 2.0;
-
-        double out = 0;
-        if(in < 0.75){
-            out = 0;
-        }else{
-            out = 1;
-        }
-
-        if(out < 0) out = 0;
-        if(out > 1) out = 1;
-
-        return out;
-    }
-
-    BufferedImage flip(BufferedImage img){
-        AffineTransform at = new AffineTransform();
-        at.concatenate(AffineTransform.getScaleInstance(-1, 1));
-        at.concatenate(AffineTransform.getTranslateInstance(-img.getWidth(), 0));
-        return createTransformed(img, at);
-    }
-
-    private BufferedImage createTransformed(BufferedImage image, AffineTransform at){
-        BufferedImage newImage = new BufferedImage(
-                image.getWidth(), image.getHeight(),
-                BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = newImage.createGraphics();
-        g.transform(at);
-        g.drawImage(image, 0, 0, null);
-        g.dispose();
-        return newImage;
-    }
-
     @Override
     public void changed(BarcodeResult result) {
         if(enteringNewSID) return; //don't accept new scans if setting up new SID
@@ -418,7 +306,7 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
 
         if(settingsMode && settings.isLocked()) return;
 
-        if(result.getText().startsWith(SettingsMenu.SETTINGS_CODE_PREFIX)){
+        if(BarcodeUtils.isSettingsCommand(result)) {
             return;
         }
 
@@ -562,7 +450,7 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
 
         if(settingsMode && settings.isLocked()) return;
 
-        if(result.getText().startsWith(SettingsMenu.SETTINGS_CODE_PREFIX)){
+        if(BarcodeUtils.isSettingsCommand(result)){
             settings.handleResult(result);
             return;
         }
@@ -691,11 +579,6 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
 
     private void playYeaTim(){
         try {
-//            if (yeatim == null){
-//                yeatim = AudioSystem.getClip();
-//            }else{
-//                yeatim.close();
-//            }
             yeatim = AudioSystem.getClip();
 
             AudioInputStream inputStream = AudioSystem.getAudioInputStream(SettingsMenu.class.getClassLoader().getResource("audio/tim.wav"));
