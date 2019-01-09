@@ -106,7 +106,7 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
     @Override
     protected BarcodeResult findResult() {
         String ret = null;
-//        System.out.println(buffer + " " + send);
+
         if(send) {
             send = false;
             ret = buffer;
