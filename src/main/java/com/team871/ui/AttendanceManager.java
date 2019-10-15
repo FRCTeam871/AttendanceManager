@@ -5,23 +5,19 @@ import com.team871.sensing.GenericSense;
 import com.team871.sensing.JPOSSense;
 import com.team871.sensing.ResultListener;
 import com.team871.util.BarcodeUtils;
-import com.team871.util.ClasspathUtils;
 import com.team871.util.Settings;
 import org.apache.poi.ss.usermodel.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.WindowEvent;
-import java.awt.event.WindowListener;
+import java.awt.event.*;
 import java.awt.geom.AffineTransform;
 import java.io.File;
-import java.io.IOException;
-import java.net.URISyntaxException;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,154 +28,125 @@ import java.util.List;
  * once i get a prototype working ill make it good
  */
 public class AttendanceManager implements ResultListener, KeyListener, WindowListener {
+   private static final Logger logger = LoggerFactory.getLogger(AttendanceManager.class);
+
+   private static final int TARGET_FRAMERATE = 60;
+   private static final long MILLIS_PER_FRAME = 1000/60;
 
     Frame frame;
-    private boolean running;
-    private int fps;
-    private int tps;
-
     private int time = 0;
 
     GenericSense barcodeSensor;
 
-    int flashTimer = 0;
-    int flashTimerMax = 30;
+    private int flashTimer = 0;
+    private int flashTimerMax = 30;
 
-    BarcodeResult lastResult;
-    String lastSID = "???";
-    String lastName = "";
+    private BarcodeResult lastResult;
+    private String lastSID = "???";
+    private String lastName = "";
 
     SheetWrapper sheetWrapper;
     private boolean enteringNewSID = false;
 
-    SettingsMenu settings;
+    private SettingsMenu settings;
     private boolean settingsMode = false;
-    private Clip yeatim;
 
     private int clearTimerMax = 60 * 4;
     private int clearTimer = clearTimerMax;
 
-    public static void main(String[] args){
-        new AttendanceManager(args);
-    }
-
-    private AttendanceManager(String[] args){
-        System.out.println("inJar = " + Settings.inJar());
-        if(Settings.inJar()) {
-            try {
-                ClasspathUtils.loadJarDll("lib/CSJPOSScanner64.dll");
-            } catch (IOException | URISyntaxException e) {
-                e.printStackTrace();
-            }
-        }
-
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
-            e.printStackTrace();
-        }
-
-        init(args);
-        run();
-    }
-
-    private void init(String[] args){
-
+    public static void main(String[] args) {
         Settings.init();
-
-        if(args.length > 0){
+        if(args.length > 0) {
             Settings.setPrefsFile(new File(args[0]));
         }else{
             Settings.setPrefsFile(Settings.getDefaultPrefsFile());
         }
 
+        final AttendanceManager manager = new AttendanceManager();
+        manager.init();
+        manager.run();
+    }
+
+    private AttendanceManager() {
+        logger.info("Initializing AttendenceManager");
+
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
+            logger.error("Error setting LAF: " + e.toString());
+        }
+    }
+
+    private void init() {
         barcodeSensor = new JPOSSense();
 
         frame = new Frame();
         settings = new SettingsMenu(this, barcodeSensor);
-
         barcodeSensor.addListener(this);
 
         sheetWrapper = new SheetWrapper(Settings.getSheetPath());
-        frame.addMouseWheelListener(sheetWrapper);
 
+        frame.addMouseWheelListener(sheetWrapper);
         frame.addKeyListener(this);
         frame.addWindowListener(this);
-
         frame.setVisible(true);
 
-        frame.canvas.addKeyListener(new KeyListener() {
-            @Override
-            public void keyTyped(KeyEvent e) {
-
-            }
-
+        frame.canvas.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                if(e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown() && e.isAltDown()){
+                if(e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown() && e.isAltDown()) {
                     playYeaTim();
                 }
-            }
-
-            @Override
-            public void keyReleased(KeyEvent e) {
-
             }
         });
     }
 
-    private void run(){
-        long last = System.nanoTime();
-        long now = System.nanoTime();
-
-        double delta = 0d;
-
-        double nsPerTick = 1e9 / 60d;
-
+    private void run() {
         long timer = System.currentTimeMillis();
+        long preRenderTime;
 
         int frames = 0;
         int ticks = 0;
 
-        running = true;
+        long totalSleepTime = 0;
+        long totalTickTime = 0;
+        long totalRenderTime = 0;
 
-        while(running){
-            now = System.nanoTime();
+        boolean running = true;
 
+        long last = System.currentTimeMillis();
+        while(running) {
+            long now = System.currentTimeMillis();
             long diff = now - last;
 
-            delta += diff / nsPerTick;
-
-            boolean shouldRender = true;
-
-            while(delta >= 1){
-                delta--;
+            for(long tickDelta = diff / MILLIS_PER_FRAME; tickDelta >= 1; tickDelta--) {
                 tick();
                 ticks++;
-                shouldRender = true;
             }
+
+            preRenderTime = System.currentTimeMillis();
+            totalTickTime += (preRenderTime - now);
+
+            render();
+            totalRenderTime += System.currentTimeMillis() - preRenderTime;
+            frames++;
+            last = now;
 
             try {
-                Thread.sleep(2);
-            } catch (InterruptedException e) {}
-
-            if(shouldRender){
-                render();
-                frames++;
-            }
-
-            last = now;
+                final long sleepTime = Math.max(1, MILLIS_PER_FRAME- (System.currentTimeMillis() - now));
+                totalSleepTime += sleepTime;
+                Thread.sleep(sleepTime);
+            } catch (InterruptedException ignored) {}
 
             if(System.currentTimeMillis() - timer >= 1000){
                 timer = System.currentTimeMillis();
-                fps = frames;
-                tps = ticks;
+                frame.setTitle("Attendance UI | " + frames + " FPS " + ticks + " TPS " + ((float)totalSleepTime/frames) + " " + ((float)totalTickTime/frames) + " " + (totalRenderTime/frames));
+                totalSleepTime = 0;
+                totalRenderTime = 0;
+                totalTickTime = 0;
                 frames = 0;
                 ticks = 0;
-
-                frame.setTitle("Attendance UI | " + fps + " FPS " + tps + " TPS");
             }
-
         }
     }
 
@@ -579,7 +546,7 @@ public class AttendanceManager implements ResultListener, KeyListener, WindowLis
 
     private void playYeaTim(){
         try {
-            yeatim = AudioSystem.getClip();
+            Clip yeatim = AudioSystem.getClip();
 
             AudioInputStream inputStream = AudioSystem.getAudioInputStream(SettingsMenu.class.getClassLoader().getResource("audio/tim.wav"));
             yeatim.open(inputStream);

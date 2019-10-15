@@ -32,10 +32,9 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
     Image img2;
 
     int danceTimer = 0;
-    Image[] danceFrames;
     Clip coolSound;
 
-    public JPOSSense(){
+    public JPOSSense() {
         String jposXmlPath = Settings.getJposXmlPath();
         System.out.println(getClass().getClassLoader().getResource("audio/tim.wav"));
         System.out.println("Looking for jpos.xml at " + jposXmlPath);
@@ -63,17 +62,6 @@ public class JPOSSense extends GenericSense implements ErrorListener, DataListen
         try {
             img2 = ImageIO.read(JPOSSense.class.getClassLoader().getResource("img/tim.jpg"));
         }catch(Exception e){}
-
-
-        danceFrames = new Image[12];
-        for(int i = 0; i < 12; i++){
-            try {
-                danceFrames[i] = ImageIO.read(JPOSSense.class.getClassLoader().getResource("dance/frame (" + (i+1) + ").gif"));
-            }catch(Exception e){
-                e.printStackTrace();
-            }
-        }
-
     }
 
     void startConnectThread(){
