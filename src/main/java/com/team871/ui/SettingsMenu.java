@@ -104,7 +104,7 @@ public class SettingsMenu {
             lock = false;
         }).start());
 
-        actions.put(BarcodeUtils.getBarcodeByName("Toggle Fullscreen"), () -> attendanceManager.frame.setFullscreen(!attendanceManager.frame.fullscreen));
+        actions.put(BarcodeUtils.getBarcodeByName("Toggle Fullscreen"), () -> attendanceManager.frame.setFullscreen(!attendanceManager.isFullscreen()));
     }
 
     public void tick() {
