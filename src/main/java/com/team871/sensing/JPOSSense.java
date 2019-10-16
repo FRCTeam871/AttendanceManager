@@ -19,7 +19,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Random;
 
-public class JPOSSense extends GenericSense implements ErrorListener, DataListener, StatusUpdateListener {
+public class JPOSSense extends AbstractBarcodeReader implements ErrorListener, DataListener, StatusUpdateListener {
     private static final Font FONT = new Font(Font.MONOSPACED, Font.BOLD, 32);
 
     String buffer = "";

@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-public class KeyboardSense extends GenericSense implements KeyListener {
+public class KeyboardSense extends AbstractBarcodeReader implements KeyListener {
 
     String buffer = "";
     boolean send = false;

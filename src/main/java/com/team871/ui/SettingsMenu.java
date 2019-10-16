@@ -1,7 +1,7 @@
 package com.team871.ui;
 
 import com.team871.sensing.BarcodeResult;
-import com.team871.sensing.GenericSense;
+import com.team871.sensing.AbstractBarcodeReader;
 import com.team871.util.BarcodeUtils;
 import com.team871.util.Settings;
 import net.sourceforge.barbecue.Barcode;
@@ -21,11 +21,11 @@ public class SettingsMenu {
     private Map<Barcode, Runnable> actions;
     private Clip testSound;
     private AttendanceManager attendanceManager;
-    private GenericSense barcodeSensor;
+    private AbstractBarcodeReader barcodeSensor;
 
     private boolean lock = false;
 
-    public SettingsMenu(AttendanceManager attendanceManager, GenericSense barcodeSensor){
+    public SettingsMenu(AttendanceManager attendanceManager, AbstractBarcodeReader barcodeSensor) {
         this.attendanceManager = attendanceManager;
         this.barcodeSensor = barcodeSensor;
         registerActions();
@@ -42,24 +42,25 @@ public class SettingsMenu {
             lock = true;
 
             String res = null;
-            while(true){
+            while (true) {
                 res = JOptionPane.showInputDialog(attendanceManager.frame.getCanvas(), (res != null) ? "\"" + res + "\" is not a valid date.\n" : "" + "Enter a new date:");
-                if(res != null){
-                    if(attendanceManager.sheetWrapper.checkValidDate(res)) {
+                if (res != null) {
+                    if (attendanceManager.sheetWrapper.checkValidDate(res)) {
                         Settings.setDate(res);
                         attendanceManager.sheetWrapper.updateDate();
                         break;
                     }
-                }else{
+                } else {
                     break;
                 }
             }
             lock = false;
         }).start());
 
-        actions.put(BarcodeUtils.getBarcodeByName("Sign In/Out by Name"),() -> new Thread(() -> {
+        actions.put(BarcodeUtils.getBarcodeByName("Sign In/Out by Name"), () -> new Thread(() -> {
             lock = true;
-            cancel: {
+            cancel:
+            {
                 List<Row> rows;
                 String name = null;
                 do {
@@ -74,27 +75,27 @@ public class SettingsMenu {
                         if (firstName == null) break cancel;
                     } while (attendanceManager.sheetWrapper.getRowByFullName(firstName, name) == null);
 
-                    if(Settings.getMode() == Mode.IN_ONLY) {
+                    if (Settings.getMode() == Mode.IN_ONLY) {
                         attendanceManager.sheetWrapper.setPresentByFullName(firstName, name, true);
                         JOptionPane.showMessageDialog(attendanceManager.frame.getCanvas(), "Signed in.");
-                    }else if(Settings.getMode() == Mode.IN_OUT){
-                        if(attendanceManager.sheetWrapper.isSignedInByFullName(firstName, name) && !attendanceManager.sheetWrapper.isSignedOutByFullName(firstName, name)){
+                    } else if (Settings.getMode() == Mode.IN_OUT) {
+                        if (attendanceManager.sheetWrapper.isSignedInByFullName(firstName, name) && !attendanceManager.sheetWrapper.isSignedOutByFullName(firstName, name)) {
                             attendanceManager.sheetWrapper.signOutByFullName(firstName, name);
                             JOptionPane.showMessageDialog(attendanceManager.frame.getCanvas(), "Signed out.");
-                        }else {
+                        } else {
                             attendanceManager.sheetWrapper.signInByFullName(firstName, name);
                             JOptionPane.showMessageDialog(attendanceManager.frame.getCanvas(), "Signed in.");
                         }
                     }
                 } else {
-                    if(Settings.getMode() == Mode.IN_ONLY) {
+                    if (Settings.getMode() == Mode.IN_ONLY) {
                         attendanceManager.sheetWrapper.setPresentByLastName(name, true);
                         JOptionPane.showMessageDialog(attendanceManager.frame.getCanvas(), "Signed in.");
-                    }else if(Settings.getMode() == Mode.IN_OUT){
-                        if(attendanceManager.sheetWrapper.isSignedInByLastName(name) && !attendanceManager.sheetWrapper.isSignedOutByLastName(name)){
+                    } else if (Settings.getMode() == Mode.IN_OUT) {
+                        if (attendanceManager.sheetWrapper.isSignedInByLastName(name) && !attendanceManager.sheetWrapper.isSignedOutByLastName(name)) {
                             attendanceManager.sheetWrapper.signOutByLastName(name);
                             JOptionPane.showMessageDialog(attendanceManager.frame.getCanvas(), "Signed out.");
-                        }else {
+                        } else {
                             attendanceManager.sheetWrapper.signInByLastName(name);
                             JOptionPane.showMessageDialog(attendanceManager.frame.getCanvas(), "Signed in.");
                         }
@@ -108,10 +109,10 @@ public class SettingsMenu {
     }
 
     public void tick() {
-        for(Barcode b : actions.keySet()) {
+        for (Barcode b : actions.keySet()) {
             Color foreground = b.getForeground();
-            if(!foreground.equals(Color.BLACK)) {
-                foreground = new Color(0, Math.max(foreground.getGreen()-8, 0), 0);
+            if (!foreground.equals(Color.BLACK)) {
+                foreground = new Color(0, Math.max(foreground.getGreen() - 8, 0), 0);
                 b.setForeground(foreground);
             }
         }
@@ -120,7 +121,7 @@ public class SettingsMenu {
     Font headerFont = new Font("Arial", Font.PLAIN, 32);
     Font settingsFont = new Font("Arial", Font.BOLD, 12);
 
-    public void render(Graphics2D g, int width, int height){
+    public void render(Graphics2D g, int width, int height) {
 
         g.setColor(Color.LIGHT_GRAY);
         g.fillRect(0, 0, width, height);
@@ -128,24 +129,24 @@ public class SettingsMenu {
         g.setColor(Color.BLACK);
         g.setFont(headerFont);
         String header = "Debug Menu";
-        g.drawString(header, width / 2 - g.getFontMetrics().stringWidth(header)/2, 40);
+        g.drawString(header, width / 2 - g.getFontMetrics().stringWidth(header) / 2, 40);
 
         List<String> params = getDebugInfo();
 
         g.setFont(settingsFont);
         int colCt = 5;
-        for(int i = 0; i < params.size(); i++){
+        for (int i = 0; i < params.size(); i++) {
             int col = i / colCt;
 
-            int bx = 20 + 400*(col);
-            int by = 80 + (i%colCt) * 20;
+            int bx = 20 + 400 * (col);
+            int by = 80 + (i % colCt) * 20;
 
-            g.setClip(bx-4, by - 14, 400+4 - 10, 12+4);
+            g.setClip(bx - 4, by - 14, 400 + 4 - 10, 12 + 4);
             g.setColor(Color.BLACK);
 
             int w = g.getFontMetrics().stringWidth(params.get(i)) + 6;
-            if(w > 400 + 4 - 10){
-                bx += (Math.sin(System.currentTimeMillis() / 5000.0) + 1)/2f * ((400 + 4 - 10)-w);
+            if (w > 400 + 4 - 10) {
+                bx += (Math.sin(System.currentTimeMillis() / 5000.0) + 1) / 2f * ((400 + 4 - 10) - w);
             }
 
             g.drawString(params.get(i), bx, by);
@@ -159,10 +160,10 @@ public class SettingsMenu {
         int startY = 200;
         int i = 0;
 
-        for(Barcode b : actions.keySet()) {
+        for (Barcode b : actions.keySet()) {
             int ix = i % 3;
             int iy = i / 3;
-            BarcodeUtils.drawBarcode(b, g, width / 2 - b.getWidth()/2 + (int)(ix*spacingX - (rowCt-1)/2f*spacingX), iy * spacingY + startY);
+            BarcodeUtils.drawBarcode(b, g, width / 2 - b.getWidth() / 2 + (int) (ix * spacingX - (rowCt - 1) / 2f * spacingX), iy * spacingY + startY);
             i++;
         }
     }
@@ -183,14 +184,18 @@ public class SettingsMenu {
     }
 
     public void handleResult(BarcodeResult result) {
+        if (isLocked()) {
+            return;
+        }
+
         final Barcode b = BarcodeUtils.getBarcode(result);
-        if(b == null) {
+        if (b == null) {
             return;
         }
 
         final Runnable action = actions.get(b);
 
-        if(action == null) {
+        if (action == null) {
             return;
         }
 
@@ -200,9 +205,9 @@ public class SettingsMenu {
 
     private void playTestSound() {
         try {
-            if (testSound == null){
+            if (testSound == null) {
                 testSound = AudioSystem.getClip();
-            }else{
+            } else {
                 testSound.close();
             }
 
@@ -210,12 +215,12 @@ public class SettingsMenu {
             testSound.open(inputStream);
             testSound.setFramePosition(0);
             testSound.start();
-        }catch (Exception e){
+        } catch (Exception e) {
             System.err.println(e.getMessage());
         }
     }
 
-    public boolean isLocked(){
+    public boolean isLocked() {
         return lock;
     }
 }

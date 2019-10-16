@@ -13,7 +13,7 @@ import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Collection;
 
-public class ImageSense extends GenericSense {
+public class ImageSense extends AbstractBarcodeReader {
 
     final OneDReader reader;
     ImageProvider imgProvider;
@@ -22,9 +22,7 @@ public class ImageSense extends GenericSense {
     int timeCooldown = 0;
 
     public ImageSense(OneDReader reader, ImageProvider provider) {
-        super();
         this.reader = reader;
-        this.listeners = new ArrayList<>();
         this.imgProvider = provider;
     }
 

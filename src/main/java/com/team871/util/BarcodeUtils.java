@@ -4,13 +4,18 @@ import com.team871.sensing.BarcodeResult;
 import net.sourceforge.barbecue.Barcode;
 import net.sourceforge.barbecue.BarcodeException;
 import net.sourceforge.barbecue.output.OutputException;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 
 public class BarcodeUtils {
-    public static final String SETTINGS_CODE_PREFIX = "SET-";
+    private static final Logger log = LoggerFactory.getLogger(BarcodeUtils.class);
+    private static final String SETTINGS_CODE_PREFIX = "SET-";
+    private static final String ADMIN_PREFIX = "A871L%4$9Z-";
     private static final Map<String, Barcode> barcodesByCommand = new HashMap<>();
     private static final Map<String, Barcode> barcodesByName = new HashMap<>();
 
@@ -21,7 +26,7 @@ public class BarcodeUtils {
             addBarcode("Sign In/Out by Name", "SI");
             addBarcode("Toggle Fullscreen", "FS");
         } catch (BarcodeException ex) {
-            ex.printStackTrace();
+            log.error("Failed to add barcode:", ex);
         }
     }
 
@@ -44,8 +49,8 @@ public class BarcodeUtils {
     public static void drawBarcode(Barcode bar, Graphics2D g, int x, int y) {
         try {
             bar.draw(g, x, y);
-        }catch(OutputException e){
-            e.printStackTrace();
+        } catch (OutputException e) {
+            log.error("Failed to draw barcode", e);
         }
     }
 
@@ -61,17 +66,33 @@ public class BarcodeUtils {
         return barcodesByName.get(name);
     }
 
-    public static String getSettingsCommand(BarcodeResult br) {
+    public static boolean isSettingsCommand(@NotNull BarcodeResult br) {
         final String text = br.getText();
-        if(text == null || text.isEmpty() || !text.startsWith(SETTINGS_CODE_PREFIX)) {
+        return !isNullOrEmpty(text) && text.startsWith(SETTINGS_CODE_PREFIX);
+    }
+
+    public static boolean isAdminCommand(@NotNull BarcodeResult result) {
+        final String text = result.getText();
+        return !isNullOrEmpty(text) && text.startsWith(ADMIN_PREFIX);
+    }
+
+    public static String getSettingsCommand(BarcodeResult br) {
+        return getSuffix(br.getText(), SETTINGS_CODE_PREFIX);
+    }
+
+    public static String getAdminCommand(BarcodeResult result) {
+        return getSuffix(result.getText(), ADMIN_PREFIX);
+    }
+
+    private static String getSuffix(String text, @NotNull String prefix) {
+        if (isNullOrEmpty(text) || !text.startsWith(prefix)) {
             return null;
         }
 
-        return text.substring(SETTINGS_CODE_PREFIX.length());
+        return text.substring(prefix.length());
     }
 
-    public static boolean isSettingsCommand(BarcodeResult br) {
-        final String text = br.getText();
-        return !(text == null || text.isEmpty() || !text.startsWith(SETTINGS_CODE_PREFIX));
+    public static boolean isNullOrEmpty(String val) {
+        return val == null || val.isEmpty();
     }
 }
