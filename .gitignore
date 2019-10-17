@@ -3,3 +3,7 @@ out/
 .idea/
 build/
 run/
+.idea/libraries/
+.idea/modules/
+.idea/.name
+.idea/*.xml
