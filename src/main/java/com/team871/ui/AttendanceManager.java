@@ -1,9 +1,9 @@
 package com.team871.ui;
 
-import com.team871.sensing.BarcodeResult;
+import com.team871.exception.RobotechException;
 import com.team871.sensing.AbstractBarcodeReader;
+import com.team871.sensing.BarcodeResult;
 import com.team871.sensing.JPOSSense;
-import com.team871.sensing.ResultListener;
 import com.team871.util.BarcodeUtils;
 import com.team871.util.Settings;
 import org.apache.poi.ss.usermodel.Row;
@@ -15,7 +15,8 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
 import java.io.File;
 import java.security.MessageDigest;
@@ -27,7 +28,7 @@ import java.util.List;
  * i know this code is terrible
  * once i get a prototype working ill make it good
  */
-public class AttendanceManager implements ResultListener {
+public class AttendanceManager {
     private static final Logger logger = LoggerFactory.getLogger(AttendanceManager.class);
     private static final int TARGET_FRAMERATE = 60;
     private static final long MILLIS_PER_FRAME = 1000 / TARGET_FRAMERATE;
@@ -69,8 +70,12 @@ public class AttendanceManager implements ResultListener {
         }
 
         final AttendanceManager manager = new AttendanceManager();
-        manager.init();
-        manager.run();
+        try {
+            manager.init();
+            manager.run();
+        } catch (RobotechException e) {
+            logger.error("Failed to initialize: ", e);
+        }
     }
 
     private AttendanceManager() {
@@ -83,12 +88,22 @@ public class AttendanceManager implements ResultListener {
         }
     }
 
-    private void init() {
+    private void init() throws RobotechException {
         barcodeSensor = new JPOSSense();
 
         frame = new Frame();
         settings = new SettingsMenu(this, barcodeSensor);
-        barcodeSensor.addListener(this);
+        barcodeSensor.addListener( (code, changed) -> {
+            if(changed) {
+                handleChanged(code);
+            }
+
+            if (BarcodeUtils.isSettingsCommand(code)) {
+                settings.handleResult(code);
+            } else if(BarcodeUtils.isAdminCommand(code)) {
+                handleAdmin(code);
+            }
+        });
 
         sheetWrapper = new SheetWrapper(Settings.getSheetPath());
 
@@ -97,42 +112,33 @@ public class AttendanceManager implements ResultListener {
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_S && e.isControlDown()) {
-                    int result = JOptionPane.showConfirmDialog(frame.getCanvas(), "Do you want to save?", frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+                    showSaveDialog();
+                } else if(e.getKeyCode() == KeyEvent.VK_Q && e.isControlDown()) {
+                    if (sheetWrapper.hasUnsaved()) {
+                        int result = JOptionPane.showConfirmDialog(frame.getCanvas(), "You have unsaved changes!\nDo you want to save?", frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
 
-                    if (result == JOptionPane.YES_OPTION) {
-                        showSaveDialog();
+                        switch (result) {
+                            case JOptionPane.YES_OPTION:
+                                showSaveDialog();
+                                int result2 = JOptionPane.showConfirmDialog(frame.getCanvas(), "Exit?", frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+                                if (result2 == JOptionPane.YES_OPTION) {
+                                    currentState = State.Shutdown;
+                                }
+                                break;
+                            case JOptionPane.NO_OPTION:
+                                currentState = State.Shutdown;
+                                break;
+                            default: // cancel or x-out
+                                // don't do anything
+                                break;
+                        }
+                    } else {
+                        currentState = State.Shutdown;
                     }
                 } else if (e.getKeyCode() == KeyEvent.VK_F5) {
                     currentState = currentState == State.Settings ? State.Normal : State.Settings;
                 } else if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown() && e.isAltDown()) {
                     playYeaTim();
-                }
-            }
-        });
-
-        frame.addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent e) {
-                if (sheetWrapper.hasUnsaved()) {
-                    int result = JOptionPane.showConfirmDialog(frame.getCanvas(), "You have unsaved changes!\nDo you want to save?", frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
-
-                    switch (result) {
-                        case JOptionPane.YES_OPTION:
-                            showSaveDialog();
-                            int result2 = JOptionPane.showConfirmDialog(frame.getCanvas(), "Exit?", frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
-                            if (result2 == JOptionPane.YES_OPTION) {
-                                currentState = State.Shutdown;
-                            }
-                            break;
-                        case JOptionPane.NO_OPTION:
-                            currentState = State.Shutdown;
-                            break;
-                        default: // cancel or x-out
-                            // don't do anything
-                            break;
-                    }
-                } else {
-                    currentState = State.Shutdown;
                 }
             }
         });
@@ -186,6 +192,9 @@ public class AttendanceManager implements ResultListener {
                 ticks = 0;
             }
         }
+
+        barcodeSensor.shutdown();
+        System.exit(0);
     }
 
     private void tick() {
@@ -193,9 +202,9 @@ public class AttendanceManager implements ResultListener {
             flashTimer--;
         }
 
-        barcodeSensor.update();
+        barcodeSensor.tick(time);
         sheetWrapper.tick(time);
-        settings.tick();
+        settings.tick(time);
 
         if (clearTimer > 0) {
             clearTimer--;
@@ -204,7 +213,7 @@ public class AttendanceManager implements ResultListener {
                 lastResult = null;
                 lastName = "";
                 lastSID = "???";
-                barcodeSensor.resetCache();
+                barcodeSensor.resetLast();
             }
         }
 
@@ -245,19 +254,19 @@ public class AttendanceManager implements ResultListener {
         g.fillRect(0, 0, width, height);
     }
 
-    private void renderCameraRectangle(Graphics2D g, Rectangle camRect) {
+    private void renderSensorPanel(Graphics2D g, Rectangle sensorPanel) {
         // "Camera" rectangle.  In reality, this is where the scanner will render state.
         g.setColor(Color.LIGHT_GRAY);
         g.setStroke(new BasicStroke(8f));
-        g.drawRect(camRect.x, camRect.y, camRect.width, camRect.height);
+        g.drawRect(sensorPanel.x, sensorPanel.y, sensorPanel.width, sensorPanel.height);
 
         g.setColor(Color.BLUE);
         g.drawRect(100 + (int) (50 * Math.sin(time / 10f)), 100 + (int) (50 * Math.cos(time / 10f)), 20, 20);
 
         AffineTransform tr = g.getTransform();
-        g.setClip(camRect);
-        g.translate(camRect.x, camRect.y);
-        barcodeSensor.renderPreview(g, camRect.width, camRect.height);
+        g.setClip(sensorPanel);
+        g.translate(sensorPanel.x, sensorPanel.y);
+        barcodeSensor.render(g, sensorPanel.width, sensorPanel.height);
         g.setTransform(tr);
         g.setClip(null);
     }
@@ -307,13 +316,12 @@ public class AttendanceManager implements ResultListener {
         int padding = 16;
 
         renderBackground(g, width, height);
-        renderCameraRectangle(g, new Rectangle(padding, padding, (int) (width * 0.4), (int) (height * 0.4)));
+        renderSensorPanel(g, new Rectangle(padding, padding, (int) (width * 0.4), (int) (height * 0.4)));
         renderInfoRectangle(g, new Rectangle((int) (width - width * 0.5 - padding), padding, (int) (width * 0.5), (int) (height * 0.4)));
         renderTable(g, new Rectangle(padding, (int) (height * 0.4 + padding + padding), width - padding * 2, (int) ((height) - (height * 0.4 + padding + padding) - padding)));
     }
 
-    @Override
-    public void changed(BarcodeResult result) {
+    private void handleChanged(BarcodeResult result) {
         if (enteringNewSID ||
             currentState == State.Settings ||
             BarcodeUtils.isSettingsCommand(result) ||
@@ -446,15 +454,6 @@ public class AttendanceManager implements ResultListener {
                 lastName = "TIM";
                 playYeaTim();
             }
-        }
-    }
-
-    @Override
-    public void scanned(BarcodeResult result) {
-        if (BarcodeUtils.isSettingsCommand(result)) {
-            settings.handleResult(result);
-        } else if(BarcodeUtils.isAdminCommand(result)) {
-            handleAdmin(result);
         }
     }
 

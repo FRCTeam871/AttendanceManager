@@ -1,45 +1,41 @@
 package com.team871.sensing;
 
+import com.team871.ui.TickListener;
+
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.*;
 import java.util.List;
 
-public abstract class AbstractBarcodeReader {
+public abstract class AbstractBarcodeReader implements TickListener {
     private BarcodeResult cachedResult;
-    private final List<ResultListener> listeners = new ArrayList<>();
+    private final List<ScannerListener> listeners = new ArrayList<>();
+    private final Deque<BarcodeResult> dataQueue = new ArrayDeque<>();
 
-    public void update() {
-        final BarcodeResult newResult = findResult();
-        if (newResult == null) {
-            return;
-        }
-
-        final BarcodeResult oldResult = cachedResult;
-        cachedResult = newResult;
-
-        if (oldResult == null || !newResult.getText().equals(oldResult.getText())) {
-            listeners.forEach(l -> l.changed(newResult));
-        }
-
-        listeners.forEach(l -> l.scanned(newResult));
+    protected void enqueueResult(String data) {
+        dataQueue.offer(new BarcodeResult(data, System.currentTimeMillis()));
     }
 
-    public BarcodeResult getCachedResult() {
+    protected void fireScannedEvent(BarcodeResult event, boolean changed) {
+        listeners.forEach(l -> l.onScanned(event, changed));
+    }
+
+    public BarcodeResult getLastResult() {
         return cachedResult;
     }
 
-    public void addListener(ResultListener listener) {
+    protected BarcodeResult getNextResult() {
+        return dataQueue.poll();
+    }
+
+    public void addListener(ScannerListener listener) {
         listeners.add(listener);
     }
 
-    public void resetCache() {
+    public void resetLast() {
         cachedResult = null;
     }
 
-    protected abstract BarcodeResult findResult();
-
     public abstract Collection<? extends String> getDebugInfo();
-
-    public abstract void renderPreview(Graphics2D g, int width, int height);
+    public abstract void render(Graphics2D g, int width, int height);
+    public abstract void shutdown();
 }

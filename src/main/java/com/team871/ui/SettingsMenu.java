@@ -17,7 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public class SettingsMenu {
+public class SettingsMenu implements TickListener {
     private Map<Barcode, Runnable> actions;
     private Clip testSound;
     private AttendanceManager attendanceManager;
@@ -108,7 +108,7 @@ public class SettingsMenu {
         actions.put(BarcodeUtils.getBarcodeByName("Toggle Fullscreen"), () -> attendanceManager.frame.setFullscreen(!attendanceManager.isFullscreen()));
     }
 
-    public void tick() {
+    public void tick(long time) {
         for (Barcode b : actions.keySet()) {
             Color foreground = b.getForeground();
             if (!foreground.equals(Color.BLACK)) {
@@ -171,7 +171,7 @@ public class SettingsMenu {
     private List<String> getDebugInfo() {
         List<String> ret = new ArrayList<>();
         ret.addAll(Settings.getDebugInfo());
-        BarcodeResult result = barcodeSensor.getCachedResult();
+        BarcodeResult result = barcodeSensor.getLastResult();
         ret.add("Cached Scan = " + (result == null ? "null" : "\"" + result.getText() + "\""));
         result = attendanceManager.getLastResult();
         ret.add("Last Result = " + (result == null ? "null" : "\"" + result.getText() + "\""));

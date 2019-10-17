@@ -3,43 +3,34 @@ package com.team871.sensing;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.*;
 import java.util.List;
 
-public class KeyboardSense extends AbstractBarcodeReader implements KeyListener {
+import static java.awt.event.KeyEvent.VK_ENTER;
 
-    String buffer = "";
-    boolean send = false;
-    long time;
+public class KeyboardSense extends AbstractBarcodeReader implements KeyListener {
+    private StringBuilder buffer = new StringBuilder();
+    private BarcodeResult lastResult = null;
 
     @Override
-    protected BarcodeResult findResult() {
-        String ret = null;
-//        System.out.println(buffer + " " + send);
-        if(send) {
-            send = false;
-            ret = buffer;
-            buffer = "";
-        }
-        return ret == null ? null : new BarcodeResult(ret, time);
+    public void render(Graphics2D g, int width, int height) {
+        g.setColor(Color.BLUE);
+        g.fillRect(0,0, width, height);
+        g.drawString("Buffer: " + buffer, 10, 10);
     }
 
     @Override
-    public void renderPreview(Graphics2D g, int width, int height) {
-        g.setColor(Color.BLUE);
-        g.fillRect(0,0, width, height);
+    public void shutdown() {
+
     }
 
     @Override
     public void keyTyped(KeyEvent e) {
-//        System.out.println(e.getKeyChar() + " " + (int)e.getKeyChar());
-        if(send) return;
-        if((int)e.getKeyChar() == 10){
-            send = true;
-            time = System.currentTimeMillis();
-        }else {
-            buffer += e.getKeyChar();
+        if((int)e.getKeyChar() == VK_ENTER) {
+            enqueueResult(buffer.toString());
+            buffer = new StringBuilder();
+        } else {
+            buffer.append(e.getKeyChar());
         }
     }
 
@@ -55,10 +46,11 @@ public class KeyboardSense extends AbstractBarcodeReader implements KeyListener 
 
     @Override
     public Collection<? extends String> getDebugInfo() {
-        List<String> ret = new ArrayList<>();
-        ret.add("Buffer = \"" + buffer + "\"");
-        ret.add("Time = " + time);
-        return ret;
+        return Collections.singletonList("Buffer = \"" + buffer + "\"");
     }
 
+    @Override
+    public void tick(long time) {
+
+    }
 }
