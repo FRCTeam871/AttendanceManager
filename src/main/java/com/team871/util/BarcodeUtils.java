@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Predicate;
 
 public class BarcodeUtils {
     private static final Logger log = LoggerFactory.getLogger(BarcodeUtils.class);
@@ -25,6 +26,7 @@ public class BarcodeUtils {
             addBarcode("Set Date", "D8");
             addBarcode("Sign In/Out by Name", "SI");
             addBarcode("Toggle Fullscreen", "FS");
+            addBarcode("Correct Name", "CN");
         } catch (BarcodeException ex) {
             log.error("Failed to add barcode:", ex);
         }

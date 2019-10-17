@@ -106,6 +106,16 @@ public class SettingsMenu implements TickListener {
         }).start());
 
         actions.put(BarcodeUtils.getBarcodeByName("Toggle Fullscreen"), () -> attendanceManager.setFullscreen(!attendanceManager.isFullscreen()));
+
+        actions.put(BarcodeUtils.getBarcodeByName("Correct Name"), () -> new Thread(()-> {
+//            String id = null;
+//            do {
+//                id = JOptionPane.showInputDialog((id != null ? "That id is not valid.\n" : "") + "Enter the ID of the name to update:");
+//                if(id == null) {
+//                    return;
+//                }
+//            } while ((rows = attendanceManager.sheetWrapper.getRowsByLastName(name)).isEmpty());
+        }).start());
     }
 
     public void tick(long time) {

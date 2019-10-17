@@ -2,6 +2,8 @@ package com.team871.ui;
 
 import com.team871.util.Settings;
 import org.apache.poi.ss.usermodel.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.Color;
@@ -26,9 +28,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class SheetWrapper implements MouseWheelListener {
+    private static final Logger logger = LoggerFactory.getLogger(SheetWrapper.class);
     private static final Pattern inTimePattern = Pattern.compile("in(\\d+):(\\d+)");
     private static final DateFormat dateFormat = new SimpleDateFormat("H:mm");
-    private static final float NAME_COL_WIDTH = 100f;
+    private static final int NAME_COL_WIDTH = 100;
 
     private File file;
 
@@ -111,7 +114,7 @@ public class SheetWrapper implements MouseWheelListener {
             Cell cell = headerRow.getCell(i);
 
             // The last column is a formula column, ignore it.
-            if(cell != null && cell.getCellType() == CellType.FORMULA) {
+            if(i > 0 && cell != null && cell.getCellType() == CellType.FORMULA) {
                 break;
             }
 
@@ -239,7 +242,6 @@ public class SheetWrapper implements MouseWheelListener {
         return formatCell(firstNameCell) + " " + formatCell(lastNameCell);
     }
 
-
     public void tick(int time) {
         if(highlightTimer == 0) {
             highlightRow = null;
@@ -280,8 +282,16 @@ public class SheetWrapper implements MouseWheelListener {
 
     String[][] cache;
 
-    private double getCellWidth() {
-        return ((dimension.width - (NAME_COL_WIDTH * 2f)) / (lastCol - firstNameColumn));
+    private int getCellWidth(int column, Graphics g) {
+        if(column == 0) {
+            return g.getFontMetrics().stringWidth(Integer.toString(maxRow)) + 10;
+        }
+
+        if(column == firstNameColumn || column == lastNameColumn) {
+            return NAME_COL_WIDTH;
+        }
+
+        return (int)((dimension.width - (NAME_COL_WIDTH * 2f)) / (lastCol - firstNameColumn));
     }
 
     public void drawTable(Graphics2D g) {
@@ -315,7 +325,7 @@ public class SheetWrapper implements MouseWheelListener {
             boolean present = cellVal != null && hours > 0;
             boolean hasValue = cellVal != null && !cellVal.isEmpty();
 
-            int cw = (i <= firstNameColumn) ? (int)NAME_COL_WIDTH : (int)getCellWidth();
+            int cw = getCellWidth(i, g);
             int ch = cellHeight;
 
             g.setColor(r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE);
@@ -334,7 +344,7 @@ public class SheetWrapper implements MouseWheelListener {
                 } else {
                     g.setColor(r % 2 == 0 ? PRESENT_EVEN : PRESENT_ODD);
                 }
-            }else if(i > currentDateColumn && i < lastCol - 1 && r > 1){
+            }else if(i > currentDateColumn && i < lastCol && r > 1) {
                 g.setColor(Color.GRAY);
             }
 
@@ -377,7 +387,9 @@ public class SheetWrapper implements MouseWheelListener {
             g.drawRect(cx, cy, cw, ch);
 
             if(i > firstNameColumn && i <= currentDateColumn) {
-                if(Settings.getLoginType() == LoginType.IN_OUT) {
+                if(r == headerRow.getRowNum()) {
+                    g.drawString(cellVal, cx + 4, cy + ch/2 + g.getFont().getSize()/2);
+                } else if(Settings.getLoginType() == LoginType.IN_OUT) {
                     String val = cellVal;
                     Matcher matcher = inTimePattern.matcher(val);
                     if(matcher.matches()) {
