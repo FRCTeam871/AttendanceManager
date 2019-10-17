@@ -1,6 +1,6 @@
 package com.team871.util;
 
-import com.team871.ui.Mode;
+import com.team871.ui.LoginType;
 
 import java.io.*;
 import java.net.URISyntaxException;
@@ -17,7 +17,7 @@ public class Settings {
     private static String date;
     private static String jposXmlPath;
     private static Path sheetPath;
-    private static Mode mode;
+    private static LoginType loginType;
     private static String sheet;
     private static boolean fun;
 
@@ -45,12 +45,12 @@ public class Settings {
         sheetPath = Paths.get(path);
     }
 
-    public static Mode getMode(){
-        return mode;
+    public static LoginType getLoginType(){
+        return loginType;
     }
 
-    public static void setMode(Mode mode){
-        Settings.mode = mode;
+    public static void setLoginType(LoginType loginType){
+        Settings.loginType = loginType;
     }
 
     public static void setSheet(String sheet){
@@ -74,7 +74,7 @@ public class Settings {
         setDate(LocalDate.now().format(fmt));
         setJposXmlPath("%HOME%\\jpos.xml");
         setSheetPath("att.xlsx");
-        setMode(Mode.IN_ONLY);
+        setLoginType(LoginType.IN_ONLY);
         setSheet("Build Season");
         setFun(true);
     }
@@ -84,7 +84,7 @@ public class Settings {
         ret.add("Date = \"" + getDate() + "\"");
         ret.add("jpos.xml Path = \"" + getJposXmlPath() + "\"");
         ret.add("Sheet URL = \"" + getSheetPath() + "\"");
-        ret.add("Mode = " + Settings.getMode());
+        ret.add("Mode = " + Settings.getLoginType());
         ret.add("Sheet = " + Settings.getSheet());
         return ret;
     }
@@ -134,7 +134,7 @@ public class Settings {
         try(BufferedWriter bw = new BufferedWriter(new FileWriter(file))) {
             bw.write(sheetPath + "\n");
             bw.write(getJposXmlPath() + "\n");
-            bw.write(mode.toString() + "\n");
+            bw.write(loginType.toString() + "\n");
             bw.write(getSheet() + "\n");
             bw.write(getFun() + "\n");
         }
@@ -144,7 +144,7 @@ public class Settings {
         BufferedReader br = new BufferedReader(new FileReader(file));
         setSheetPath(br.readLine());
         setJposXmlPath(br.readLine());
-        setMode(Mode.valueOf(br.readLine()));
+        setLoginType(LoginType.valueOf(br.readLine()));
         setSheet(br.readLine());
         setFun(Boolean.parseBoolean(br.readLine()));
         br.close();

@@ -21,6 +21,7 @@ import java.awt.geom.AffineTransform;
 import java.io.File;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -33,7 +34,7 @@ public class AttendanceManager {
     private static final int TARGET_FRAMERATE = 60;
     private static final long MILLIS_PER_FRAME = 1000 / TARGET_FRAMERATE;
 
-    Frame frame;
+    private final Frame frame;
     private int time = 0;
 
     AbstractBarcodeReader barcodeSensor;
@@ -80,28 +81,24 @@ public class AttendanceManager {
 
     private AttendanceManager() {
         logger.info("Initializing AttendenceManager");
-
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
             logger.error("Error setting LAF: " + e.toString());
         }
+        frame = new Frame();
     }
 
     private void init() throws RobotechException {
         barcodeSensor = new JPOSSense();
-
-        frame = new Frame();
         settings = new SettingsMenu(this, barcodeSensor);
         barcodeSensor.addListener( (code, changed) -> {
-            if(changed) {
-                handleChanged(code);
-            }
-
             if (BarcodeUtils.isSettingsCommand(code)) {
                 settings.handleResult(code);
             } else if(BarcodeUtils.isAdminCommand(code)) {
                 handleAdmin(code);
+            } else if(changed) {
+                handleBarcode(code);
             }
         });
 
@@ -321,7 +318,7 @@ public class AttendanceManager {
         renderTable(g, new Rectangle(padding, (int) (height * 0.4 + padding + padding), width - padding * 2, (int) ((height) - (height * 0.4 + padding + padding) - padding)));
     }
 
-    private void handleChanged(BarcodeResult result) {
+    private void handleBarcode(BarcodeResult result) {
         if (enteringNewSID ||
             currentState == State.Settings ||
             BarcodeUtils.isSettingsCommand(result) ||
@@ -330,131 +327,97 @@ public class AttendanceManager {
         }
 
         logger.info("Scanned: " + result.getText());
-
         clearTimer = clearTimerMax;
-
-        String osid = result.getText().replaceFirst("^0+(?!$)", ""); // remove leading zeros;
-        String sid;
-
-        if (isValidSID(osid)) {
-            lastResult = new BarcodeResult("(hidden student id)", result.getTime());
-        } else {
-            lastResult = result;
-        }
-
         lastName = "...";
+        final String newSID = result.getText().replaceFirst("^0+(?!$)", ""); // remove leading zeros;
 
-        if (isValidSID(osid)) {
-            String newSid = osid;
-            try {
-                MessageDigest messageDigest = MessageDigest.getInstance("MD5");
-                messageDigest.update(newSid.getBytes());
-                String encryptedString = new String(messageDigest.digest());
-                encryptedString = newSid.hashCode() + "";
-                logger.info("hash = " + encryptedString);
-            } catch (Exception e) {
-                logger.error("Error validating MD5sum", e);
-            }
-
-            sid = newSid;
-
-            lastSID = sid;
-            if (sheetWrapper.getRowBySID(sid) != null) {
-                if (Settings.getMode() == Mode.IN_ONLY) {
-                    if (!sheetWrapper.isPresent(sid)) {
-                        sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
-                        if (barcodeSensor instanceof JPOSSense) {
-                            ((JPOSSense) barcodeSensor).dance();
-                        }
-
-                        if (sheetWrapper.setPresent(sid, true)) {
-                            flashTimer = flashTimerMax;
-                        }
-
-                    }
-                } else if (Settings.getMode() == Mode.IN_OUT) {
-                    sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
-                    if (barcodeSensor instanceof JPOSSense) {
-                        ((JPOSSense) barcodeSensor).dance();
-                    }
-                    if (!sheetWrapper.isSignedIn(sid) && !sheetWrapper.isSignedOut(sid)) {
-                        if (sheetWrapper.signInBySID(sid)) {
-                            flashTimer = flashTimerMax;
-                        }
-                    } else if (sheetWrapper.isSignedIn(sid)) {
-                        if (sheetWrapper.signOutBySID(sid)) {
-                            flashTimer = flashTimerMax;
-                        }
-                    }
-
-                }
-                lastName = sheetWrapper.sidToName(sid);
-            } else if (!enteringNewSID) {
-                enteringNewSID = true;
-                new Thread(() -> {
-                    int response = JOptionPane.showConfirmDialog(frame.getCanvas(), "The scanned ID is not present in the system.\nAdd it?", frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
-                    cancel:
-                    if (response == JOptionPane.YES_OPTION) {
-                        List<Row> rows;
-                        String name = null;
-                        do {
-                            name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name for the member associated with this ID:");
-                            if (name == null) break cancel;
-                        } while ((rows = sheetWrapper.getRowWithNoSIDByLastName(name)).isEmpty());
-
-                        if (rows.size() > 1) {
-                            Row row;
-                            String firstName = null;
-                            do {
-                                firstName = JOptionPane.showInputDialog((firstName != null ? "That name is not present.\n" : "") + "There are multiple people with that last name!\nEnter the first name for the member associated with this ID:");
-                                if (firstName == null) break cancel;
-                            } while ((row = sheetWrapper.getRowWithNoSIDByFullName(firstName, name)) == null);
-
-                            sheetWrapper.setSIDByFullName(firstName, name, sid);
-                        } else {
-                            sheetWrapper.setSIDByLastName(name, sid);
-                        }
-
-                        if (Settings.getMode() == Mode.IN_ONLY) {
-                            if (!sheetWrapper.isPresent(sid)) {
-                                sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
-                                if (barcodeSensor instanceof JPOSSense) {
-                                    ((JPOSSense) barcodeSensor).dance();
-                                }
-
-                                if (sheetWrapper.setPresent(sid, true)) {
-                                    flashTimer = flashTimerMax;
-                                }
-
-                            }
-                        } else if (Settings.getMode() == Mode.IN_OUT) {
-                            sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
-                            if (barcodeSensor instanceof JPOSSense) {
-                                ((JPOSSense) barcodeSensor).dance();
-                            }
-                            if (!sheetWrapper.isSignedIn(sid) && !sheetWrapper.isSignedOut(sid)) {
-                                if (sheetWrapper.signInBySID(sid)) {
-                                    flashTimer = flashTimerMax;
-                                }
-                            } else if (sheetWrapper.isSignedIn(sid)) {
-                                if (sheetWrapper.signOutBySID(sid)) {
-                                    flashTimer = flashTimerMax;
-                                }
-                            }
-                        }
-                    }
-                    lastName = sheetWrapper.sidToName(sid);
-                    enteringNewSID = false;
-                }).start();
-            }
-        } else {
+        if(!isValidSID(newSID)) {
+            lastResult = result;
             lastSID = "INVALID";
             if (lastResult.getText().equals("871")) {
                 lastSID = "YEA";
                 lastName = "TIM";
                 playYeaTim();
             }
+            return;
         }
+
+        lastResult = new BarcodeResult("(hidden student id)", result.getTime());
+        try {
+            final MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+            messageDigest.update(newSID.getBytes());
+            lastSID = Integer.toHexString(Arrays.hashCode(messageDigest.digest()));
+            logger.info("hash = " + lastSID);
+        } catch (Exception e) {
+            logger.error("Error validating MD5sum", e);
+        }
+
+        if (sheetWrapper.getRowBySID(newSID) != null) {
+            handleLogin(newSID);
+        } else if (!enteringNewSID) {
+            enteringNewSID = true;
+            SwingUtilities.invokeLater(() -> handleNewSID(newSID));
+        }
+    }
+
+    private void handleNewSID(String sid) {
+        int response = JOptionPane.showConfirmDialog(frame.getCanvas(), "The scanned ID is not present in the system.\nAdd it?", frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+
+        cancel:
+        if (response == JOptionPane.YES_OPTION) {
+            List<Row> rows;
+            String name = null;
+            do {
+                name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name for the member associated with this ID:");
+                if (name == null) {
+                    break cancel;
+                }
+            } while ((rows = sheetWrapper.getRowWithNoSIDByLastName(name)).isEmpty());
+
+            if (rows.size() > 1) {
+                String firstName = null;
+                do {
+                    firstName = JOptionPane.showInputDialog((firstName != null ? "That name is not present.\n" : "") + "There are multiple people with that last name!\nEnter the first name for the member associated with this ID:");
+                    if (firstName == null) {
+                        break cancel;
+                    }
+                } while (sheetWrapper.getRowWithNoSIDByFullName(firstName, name) == null);
+
+                sheetWrapper.setSIDByFullName(firstName, name, sid);
+            } else {
+                sheetWrapper.setSIDByLastName(name, sid);
+            }
+
+            handleLogin(sid);
+        }
+
+        enteringNewSID = false;
+    }
+
+    private void handleLogin(String sid) {
+        sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
+        if (barcodeSensor instanceof JPOSSense) {
+            ((JPOSSense) barcodeSensor).dance();
+        }
+
+        if (Settings.getLoginType() == LoginType.IN_ONLY) {
+            if (!sheetWrapper.isPresent(sid)) {
+                if (sheetWrapper.setPresent(sid, true)) {
+                    flashTimer = flashTimerMax;
+                }
+            }
+        } else if (Settings.getLoginType() == LoginType.IN_OUT) {
+            if (!sheetWrapper.isSignedIn(sid) && !sheetWrapper.isSignedOut(sid)) {
+                if (sheetWrapper.signInBySID(sid)) {
+                    flashTimer = flashTimerMax;
+                }
+            } else if (sheetWrapper.isSignedIn(sid)) {
+                if (sheetWrapper.signOutBySID(sid)) {
+                    flashTimer = flashTimerMax;
+                }
+            }
+        }
+        lastName = sheetWrapper.sidToName(sid);
     }
 
     private void handleAdmin(BarcodeResult result) {
@@ -516,7 +479,15 @@ public class AttendanceManager {
         }
     }
 
+    public void setFullscreen(boolean fullscreen) {
+        frame.setFullscreen(fullscreen);
+    }
+
     public boolean isFullscreen() {
         return frame.isFullscreen();
+    }
+
+    public Canvas getCanvas() {
+        return frame.getCanvas();
     }
 }

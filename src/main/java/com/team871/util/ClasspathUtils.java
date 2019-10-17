@@ -7,7 +7,6 @@ import java.io.InputStream;
 import java.net.URISyntaxException;
 
 public class ClasspathUtils {
-
     public static void loadJarDll(String name) throws IOException, URISyntaxException {
         InputStream in = ClasspathUtils.class.getClassLoader().getResourceAsStream(name);
         byte[] buffer = new byte[1024];

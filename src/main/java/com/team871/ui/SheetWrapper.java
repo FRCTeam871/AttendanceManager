@@ -321,7 +321,7 @@ public class SheetWrapper implements MouseWheelListener {
             g.setColor(r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE);
 
             if(i == currentDateColumn) {
-                if(Settings.getMode() == Mode.IN_OUT && cellVal != null && cellVal.startsWith("in")) {
+                if(Settings.getLoginType() == LoginType.IN_OUT && cellVal != null && cellVal.startsWith("in")) {
                     g.setColor(Color.ORANGE);
                 } else if(present) {
                     g.setColor(Color.GREEN);
@@ -377,7 +377,7 @@ public class SheetWrapper implements MouseWheelListener {
             g.drawRect(cx, cy, cw, ch);
 
             if(i > firstNameColumn && i <= currentDateColumn) {
-                if(Settings.getMode() == Mode.IN_OUT) {
+                if(Settings.getLoginType() == LoginType.IN_OUT) {
                     String val = cellVal;
                     Matcher matcher = inTimePattern.matcher(val);
                     if(matcher.matches()) {

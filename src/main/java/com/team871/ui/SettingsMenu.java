@@ -43,7 +43,7 @@ public class SettingsMenu implements TickListener {
 
             String res = null;
             while (true) {
-                res = JOptionPane.showInputDialog(attendanceManager.frame.getCanvas(), (res != null) ? "\"" + res + "\" is not a valid date.\n" : "" + "Enter a new date:");
+                res = JOptionPane.showInputDialog(attendanceManager.getCanvas(), (res != null) ? "\"" + res + "\" is not a valid date.\n" : "" + "Enter a new date:");
                 if (res != null) {
                     if (attendanceManager.sheetWrapper.checkValidDate(res)) {
                         Settings.setDate(res);
@@ -75,29 +75,29 @@ public class SettingsMenu implements TickListener {
                         if (firstName == null) break cancel;
                     } while (attendanceManager.sheetWrapper.getRowByFullName(firstName, name) == null);
 
-                    if (Settings.getMode() == Mode.IN_ONLY) {
+                    if (Settings.getLoginType() == LoginType.IN_ONLY) {
                         attendanceManager.sheetWrapper.setPresentByFullName(firstName, name, true);
-                        JOptionPane.showMessageDialog(attendanceManager.frame.getCanvas(), "Signed in.");
-                    } else if (Settings.getMode() == Mode.IN_OUT) {
+                        JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed in.");
+                    } else if (Settings.getLoginType() == LoginType.IN_OUT) {
                         if (attendanceManager.sheetWrapper.isSignedInByFullName(firstName, name) && !attendanceManager.sheetWrapper.isSignedOutByFullName(firstName, name)) {
                             attendanceManager.sheetWrapper.signOutByFullName(firstName, name);
-                            JOptionPane.showMessageDialog(attendanceManager.frame.getCanvas(), "Signed out.");
+                            JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed out.");
                         } else {
                             attendanceManager.sheetWrapper.signInByFullName(firstName, name);
-                            JOptionPane.showMessageDialog(attendanceManager.frame.getCanvas(), "Signed in.");
+                            JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed in.");
                         }
                     }
                 } else {
-                    if (Settings.getMode() == Mode.IN_ONLY) {
+                    if (Settings.getLoginType() == LoginType.IN_ONLY) {
                         attendanceManager.sheetWrapper.setPresentByLastName(name, true);
-                        JOptionPane.showMessageDialog(attendanceManager.frame.getCanvas(), "Signed in.");
-                    } else if (Settings.getMode() == Mode.IN_OUT) {
+                        JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed in.");
+                    } else if (Settings.getLoginType() == LoginType.IN_OUT) {
                         if (attendanceManager.sheetWrapper.isSignedInByLastName(name) && !attendanceManager.sheetWrapper.isSignedOutByLastName(name)) {
                             attendanceManager.sheetWrapper.signOutByLastName(name);
-                            JOptionPane.showMessageDialog(attendanceManager.frame.getCanvas(), "Signed out.");
+                            JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed out.");
                         } else {
                             attendanceManager.sheetWrapper.signInByLastName(name);
-                            JOptionPane.showMessageDialog(attendanceManager.frame.getCanvas(), "Signed in.");
+                            JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed in.");
                         }
                     }
                 }
@@ -105,7 +105,7 @@ public class SettingsMenu implements TickListener {
             lock = false;
         }).start());
 
-        actions.put(BarcodeUtils.getBarcodeByName("Toggle Fullscreen"), () -> attendanceManager.frame.setFullscreen(!attendanceManager.isFullscreen()));
+        actions.put(BarcodeUtils.getBarcodeByName("Toggle Fullscreen"), () -> attendanceManager.setFullscreen(!attendanceManager.isFullscreen()));
     }
 
     public void tick(long time) {

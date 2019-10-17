@@ -187,9 +187,6 @@ public class JPOSSense extends AbstractBarcodeReader {
 
         Barcode b = BarcodeUtils.getBarcodeByName("Sign In/Out by Name");
         BarcodeUtils.drawBarcode(b, g, (width / 2) - (b.getWidth() / 2), 100);
-
-        b = BarcodeUtils.getBarcodeByName("Toggle Fullscreen");
-        BarcodeUtils.drawBarcode(b, g, (width / 2) - (b.getWidth() / 2), height - 100);
     }
 
     private static Color rainbowColor(double frequency, int timeOffset) {
