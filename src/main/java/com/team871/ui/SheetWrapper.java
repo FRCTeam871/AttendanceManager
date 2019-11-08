@@ -88,11 +88,11 @@ public class SheetWrapper implements MouseWheelListener {
                 System.out.println(workbook.getSheetName(i));
             }
 
-            String using = Settings.getSheet();
+            String using = Settings.getInstance().getAttendanceSheet();
             System.out.printf("Using Sheet: \"%s\"\n", using);
 
             attendanceSheet = workbook.getSheet(using);
-            rosterSheet = workbook.getSheet(Settings.getRosterSheet());
+            rosterSheet = workbook.getSheet(Settings.getInstance().getRosterSheet());
 
             init();
         }catch(Exception e){
@@ -331,7 +331,7 @@ public class SheetWrapper implements MouseWheelListener {
             g.setColor(r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE);
 
             if(i == currentDateColumn) {
-                if(Settings.getLoginType() == LoginType.IN_OUT && cellVal != null && cellVal.startsWith("in")) {
+                if(Settings.getInstance().getLoginType() == LoginType.IN_OUT && cellVal != null && cellVal.startsWith("in")) {
                     g.setColor(Color.ORANGE);
                 } else if(present) {
                     g.setColor(Color.GREEN);
@@ -389,7 +389,7 @@ public class SheetWrapper implements MouseWheelListener {
             if(i > firstNameColumn && i <= currentDateColumn) {
                 if(r == headerRow.getRowNum()) {
                     g.drawString(cellVal, cx + 4, cy + ch/2 + g.getFont().getSize()/2);
-                } else if(Settings.getLoginType() == LoginType.IN_OUT) {
+                } else if(Settings.getInstance().getLoginType() == LoginType.IN_OUT) {
                     String val = cellVal;
                     Matcher matcher = inTimePattern.matcher(val);
                     if(matcher.matches()) {
@@ -887,7 +887,7 @@ public class SheetWrapper implements MouseWheelListener {
         return getColumnIndexByName(date) != -1;
     }
     public void updateDate() {
-        currentDateColumn = getColumnIndexByName(Settings.getDate());
+        currentDateColumn = getColumnIndexByName(Settings.getInstance().getDate());
     }
 
     public void showNotSignedOutDialog() {

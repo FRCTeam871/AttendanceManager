@@ -63,15 +63,14 @@ public class AttendanceManager {
     }
 
     public static void main(String[] args) {
-        Settings.init();
-        if (args.length > 0) {
-            Settings.setPrefsFile(new File(args[0]));
-        } else {
-            Settings.setPrefsFile(Settings.getDefaultPrefsFile());
-        }
-
-        final AttendanceManager manager = new AttendanceManager();
         try {
+            if (args.length > 0) {
+                Settings.getInstance().init(args[0]);
+            } else {
+                throw new RobotechException("No prefs file provided");
+            }
+
+            final AttendanceManager manager = new AttendanceManager();
             manager.init();
             manager.run();
         } catch (RobotechException e) {
@@ -102,7 +101,7 @@ public class AttendanceManager {
             }
         });
 
-        sheetWrapper = new SheetWrapper(Settings.getSheetPath());
+        sheetWrapper = new SheetWrapper(Settings.getInstance().getSheetPath());
 
         frame.addMouseWheelListener(sheetWrapper);
         frame.addKeyListener(new KeyAdapter() {
@@ -400,13 +399,13 @@ public class AttendanceManager {
             ((JPOSSense) barcodeSensor).dance();
         }
 
-        if (Settings.getLoginType() == LoginType.IN_ONLY) {
+        if (Settings.getInstance().getLoginType() == LoginType.IN_ONLY) {
             if (!sheetWrapper.isPresent(sid)) {
                 if (sheetWrapper.setPresent(sid, true)) {
                     flashTimer = flashTimerMax;
                 }
             }
-        } else if (Settings.getLoginType() == LoginType.IN_OUT) {
+        } else if (Settings.getInstance().getLoginType() == LoginType.IN_OUT) {
             if (!sheetWrapper.isSignedIn(sid) && !sheetWrapper.isSignedOut(sid)) {
                 if (sheetWrapper.signInBySID(sid)) {
                     flashTimer = flashTimerMax;
@@ -452,18 +451,6 @@ public class AttendanceManager {
         } else {
             JOptionPane.showMessageDialog(frame.getCanvas(), "Failed to save attendance (see console).", frame.getTitle(), JOptionPane.WARNING_MESSAGE);
         }
-    }
-
-    BarcodeResult getLastResult() {
-        return lastResult;
-    }
-
-    String getLastSID() {
-        return lastSID;
-    }
-
-    String getLastName() {
-        return lastName;
     }
 
     private void playYeaTim() {

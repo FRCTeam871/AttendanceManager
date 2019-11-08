@@ -1,13 +1,12 @@
 package com.team871.sensing;
 
 import com.team871.exception.RobotechException;
-import com.team871.ui.TickListener;
+import com.team871.ui.SettingsMenu;
 import com.team871.util.BarcodeUtils;
+import com.team871.util.Settings;
 import jpos.JposException;
 import jpos.Scanner;
 import jpos.util.JposPropertiesConst;
-import com.team871.util.Settings;
-import com.team871.ui.SettingsMenu;
 import net.sourceforge.barbecue.Barcode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,8 +16,10 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import java.awt.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Random;
 
 public class JPOSSense extends AbstractBarcodeReader {
     private static final Logger logger = LoggerFactory.getLogger(JPOSSense.class);
@@ -38,7 +39,7 @@ public class JPOSSense extends AbstractBarcodeReader {
     private Thread connectThread;
 
     public JPOSSense() throws RobotechException {
-        String jposXmlPath = Settings.getJposXmlPath();
+        String jposXmlPath = Settings.getInstance().getJposXmlPath();
         logger.info("YeahTim! -> " + getClass().getClassLoader().getResource("audio/tim.wav"));
         logger.info("Looking for jpos.xml at " + jposXmlPath);
         System.setProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, jposXmlPath);
@@ -178,9 +179,12 @@ public class JPOSSense extends AbstractBarcodeReader {
         int pos = 0;
         for (int i = 0; i < s.length(); i++) {
             String ch = s.substring(i, i + 1);
-            if (Settings.getFun()) g.setColor(rainbowColor(0.005, i * -50));
-            int xOfs = !Settings.getFun() ? 0 : (int) (Math.cos((System.currentTimeMillis() + 50 * i) / 200.0) * 5);
-            int yOfs = !Settings.getFun() ? 0 : (int) (Math.sin((System.currentTimeMillis() + 50 * i) / 200.0) * 5);
+            if (Settings.getInstance().getFun()) {
+                g.setColor(rainbowColor(0.005, i * -50));
+            }
+
+            int xOfs = !Settings.getInstance().getFun() ? 0 : (int) (Math.cos((System.currentTimeMillis() + 50 * i) / 200.0) * 5);
+            int yOfs = !Settings.getInstance().getFun() ? 0 : (int) (Math.sin((System.currentTimeMillis() + 50 * i) / 200.0) * 5);
             g.drawString(ch, (width / 2) - (sWidth / 2) + xOfs + pos, 50 + yOfs);
             pos += g.getFontMetrics().stringWidth(ch);
         }
@@ -203,7 +207,7 @@ public class JPOSSense extends AbstractBarcodeReader {
     }
 
     public void dance() {
-        if (!Settings.getFun()) {
+        if (!Settings.getInstance().getFun()) {
             return;
         }
 

@@ -1,156 +1,103 @@
 package com.team871.util;
 
+import com.team871.exception.RobotechException;
 import com.team871.ui.LoginType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.*;
-import java.net.URISyntaxException;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.Properties;
 
 public class Settings {
+    private static final Logger logger = LoggerFactory.getLogger(Settings.class);
+    private static final Settings INSTANCE = new Settings();
 
-    private static String date;
-    private static String jposXmlPath;
-    private static Path sheetPath;
-    private static LoginType loginType;
-    private static String sheet;
-    private static boolean fun;
+    private final Properties props;
 
-    public static String getDate() {
-        return date;
+    public static Settings getInstance() {
+        return INSTANCE;
     }
 
-    public static void setDate(String date) {
-        Settings.date = date;
+    private Settings() {
+        props = new Properties();
     }
 
-    public static String getJposXmlPath() {
-        return jposXmlPath;
+    public void setDate(String date) {
+        props.setProperty("Date", date);
     }
 
-    public static void setJposXmlPath(String jposXmlPath) {
-        Settings.jposXmlPath = jposXmlPath.replace("%HOME%", System.getProperty("user.home"));
+    public String getDate() {
+        return props.getProperty("Date");
     }
 
-    public static Path getSheetPath() {
-        return sheetPath;
+    public String getJposXmlPath() {
+        return props.getProperty("jposPath");
     }
 
-    public static void setSheetPath(String path) {
-        sheetPath = Paths.get(path);
+    public Path getSheetPath() {
+        return Paths.get(props.getProperty("worksheet"));
     }
 
-    public static LoginType getLoginType(){
-        return loginType;
+    public LoginType getLoginType(){
+        return LoginType.valueOf(props.getProperty("loginType"));
     }
 
-    public static void setLoginType(LoginType loginType){
-        Settings.loginType = loginType;
+    public String getAttendanceSheet() {
+        return props.getProperty("attendanceSheet");
     }
 
-    public static void setSheet(String sheet){
-        Settings.sheet = sheet;
+    public boolean getFun() {
+        return Boolean.getBoolean(props.getProperty("fun"));
     }
 
-    public static String getSheet(){
-        return sheet;
+    public String getRosterSheet() {
+        return props.getProperty("rosterSheet");
     }
 
-    public static void setFun(boolean fun){
-        Settings.fun = fun;
+    public int getRosterHeaderRow() {
+        return Integer.parseInt(props.getProperty("roster.headerRow"));
     }
 
-    public static boolean getFun() {
-        return fun;
+    public int getRosterFirstDataRow() {
+        return Integer.parseInt(props.getProperty("roster.firstRow"));
     }
 
-    public static void init(){
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("M/d");
-        setDate(LocalDate.now().format(fmt));
-        setJposXmlPath("%HOME%\\jpos.xml");
-        setSheetPath("att.xlsx");
-        setLoginType(LoginType.IN_ONLY);
-        setSheet("Build Season");
-        setFun(true);
+    public int getAttendanceHeaderRow() {
+        return Integer.parseInt(props.getProperty("attendance.headerRow"));
     }
 
-    public static Collection<? extends String> getDebugInfo(){
-        List<String> ret = new ArrayList<>();
-        ret.add("Date = \"" + getDate() + "\"");
-        ret.add("jpos.xml Path = \"" + getJposXmlPath() + "\"");
-        ret.add("Sheet URL = \"" + getSheetPath() + "\"");
-        ret.add("Mode = " + Settings.getLoginType());
-        ret.add("Sheet = " + Settings.getSheet());
-        return ret;
+    public int getAttendanceFirstDataRow() {
+        return Integer.parseInt(props.getProperty("attendance.firstRow"));
     }
 
-    public static boolean inJar(){
-        if(Settings.class.getResource("Settings.class") == null) return false;
-        return Settings.class.getResource("Settings.class").toString().startsWith("jar:");
-    }
+    public void init(String prefsFile) throws RobotechException {
+        final DateTimeFormatter fmt = DateTimeFormatter.ofPattern("M/d");
 
-    public static File getDefaultPrefsFile() {
-        try {
-            return new File(inJar() ? new File(Settings.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParentFile() : new File(System.getProperty("user.home")), "preferences.prefs");
-        } catch (URISyntaxException e) {
-            System.err.println("Could not get default preferences file.");
-            e.printStackTrace();
+        props.setProperty("Date", LocalDate.now().format(fmt));
+        props.setProperty("Fun", "true");
+
+        final File file = new File(prefsFile);
+
+        if(file.isDirectory()) {
+            throw new RobotechException("File must not be a directory");
         }
-        return null;
-    }
 
-    public static void setPrefsFile(File file) {
-        if(file == null) throw new IllegalArgumentException("file must not be null");
-        if(file.isDirectory()) throw new IllegalArgumentException("file must not be a directory");
-
-        System.out.println("Looking for prefs file at: " + file.getAbsolutePath());
+        logger.info("Looking for prefs file at: " + file.getAbsolutePath());
         if (!file.exists()) {
-            try {
-                System.out.println("File does not exist. Creating default prefs file at " + file.getAbsolutePath());
-                file.createNewFile();
-                savePreferences(file);
-            }catch(IOException e){
-                System.err.println("Exception while creating default preferences file at " + file.getAbsolutePath());
-                e.printStackTrace();
-            }
+            logger.error("Prefs file does not exist");
+            throw new RobotechException("Preference file does not exist");
         }
 
-        try{
-            loadPreferences(file);
-        }catch(IOException e){
-            System.err.println("Exception while loading preferences file at " + file.getAbsolutePath());
-            e.printStackTrace();
+        try(final FileInputStream fis = new FileInputStream(file)) {
+            props.load(fis);
+        } catch (IOException e) {
+            throw new RobotechException("Unable to load preferences.", e);
         }
-
-    }
-
-    public static void savePreferences(File file) throws IOException {
-        System.out.println("saving preferences to " + file.getAbsolutePath());
-        try(BufferedWriter bw = new BufferedWriter(new FileWriter(file))) {
-            bw.write(sheetPath + "\n");
-            bw.write(getJposXmlPath() + "\n");
-            bw.write(loginType.toString() + "\n");
-            bw.write(getSheet() + "\n");
-            bw.write(getFun() + "\n");
-        }
-    }
-
-    public static void loadPreferences(File file) throws IOException {
-        BufferedReader br = new BufferedReader(new FileReader(file));
-        setSheetPath(br.readLine());
-        setJposXmlPath(br.readLine());
-        setLoginType(LoginType.valueOf(br.readLine()));
-        setSheet(br.readLine());
-        setFun(Boolean.parseBoolean(br.readLine()));
-        br.close();
-    }
-
-    public static String getRosterSheet() {
-        return "Roster";
     }
 }
