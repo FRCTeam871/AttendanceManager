@@ -100,4 +100,12 @@ public class Settings {
             throw new RobotechException("Unable to load preferences.", e);
         }
     }
+
+    public static boolean isNullOrEmpty(String value) {
+        return value == null || value.isEmpty();
+    }
+
+    public int getAttendanceFirstDataColumn() {
+        return Integer.parseInt(props.getProperty("attendance.firstColumn"));
+    }
 }

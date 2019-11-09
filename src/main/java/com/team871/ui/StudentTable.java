@@ -8,27 +8,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class StudentTable {
     private static final Logger logger = LoggerFactory.getLogger(StudentTable.class);
 
-    private final Map<String, Map<String, Student>> students = new HashMap<>();
+    private final Map<String, Map<String, Student>> studentsByName = new TreeMap<>();
+    private final Map<Integer, Student> studentsById = new HashMap<>();
     private final Path worksheetPath;
 
     private Workbook workbook;
     private SheetConfig roster;
     private SheetConfig attendance;
 
-    private static class SheetConfig {
+    public static class SheetConfig {
         private final Sheet sheet;
         private final int headerRow;
+        private final int columnCount;
         private final Map<String, Integer> columnMap;
 
         SheetConfig(Sheet sheet, int headerRow) {
@@ -37,9 +35,10 @@ public class StudentTable {
             columnMap = new HashMap<>();
 
             final Row header = sheet.getRow(headerRow);
+            columnCount = header.getLastCellNum();
             for(int i = 0; i < header.getLastCellNum(); i++) {
                 final Cell cell = header.getCell(i);
-                if(cell.getCellType() == CellType.FORMULA) {
+                if(cell == null || cell.getCellType() == CellType.FORMULA) {
                     continue;
                 }
 
@@ -56,13 +55,22 @@ public class StudentTable {
             return sheet.getRow(row + headerRow).getCell(cellIndex).getStringCellValue();
         }
 
+        public String getHeaderValue(int cell) {
+            return sheet.getRow(headerRow).getCell(cell).getStringCellValue();
+        }
+
         public int getDataRowCount() {
             return sheet.getLastRowNum() - headerRow;
         }
+
+        public int getColumnCount() {
+            return columnCount;
+        }
     }
 
-    public StudentTable(Path worksheetPath) {
+    public StudentTable(Path worksheetPath) throws RobotechException {
         this.worksheetPath = worksheetPath;
+        loadAttendance();
     }
 
     private void loadAttendance() throws RobotechException {
@@ -88,13 +96,39 @@ public class StudentTable {
                 final String lastName = roster.getValue(i, "Last");
                 final String firstName = roster.getValue(i, "First");
 
-                final Map<String, Student> byFirstName = students.computeIfAbsent(lastName, k -> new HashMap<>());
+                final Map<String, Student> byFirstName = studentsByName.computeIfAbsent(lastName, k -> new TreeMap<>());
                 if(byFirstName.containsKey(firstName)) {
                     logger.error("Duplicate name! " + firstName + " " + lastName);
                     continue;
                 }
 
                 final Student student = new Student(firstName, lastName);
+                student.populateFromRow(i, roster);
+
+                // If an ID existed, add to the mapping
+                if(student.getId() >= 0) {
+                    studentsById.put(student.getId(), student);
+                }
+            }
+
+            // Then process the attendance
+            for(int i = 0; i<attendance.getDataRowCount(); i++) {
+                final String lastName = roster.getValue(i, "Last");
+                final String firstName = roster.getValue(i, "First");
+
+                final Map<String, Student> byFirstName = studentsByName.get(lastName);
+                if(byFirstName == null || byFirstName.isEmpty()) {
+                    logger.warn("No student `" + firstName + " " + lastName + "` exists.");
+                    continue;
+                }
+
+                final Student student = byFirstName.get(firstName);
+                if(student == null) {
+                    logger.warn("No student `" + firstName + " " + lastName + "` exists.");
+                    continue;
+                }
+
+                student.processAttendance(i, roster);
             }
         } catch (IOException e) {
             throw new RobotechException("Failed to load attendance file", e);

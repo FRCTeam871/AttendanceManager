@@ -101,6 +101,8 @@ public class AttendanceManager {
             }
         });
 
+        StudentTable table = new StudentTable(Settings.getInstance().getSheetPath());
+
         sheetWrapper = new SheetWrapper(Settings.getInstance().getSheetPath());
 
         frame.addMouseWheelListener(sheetWrapper);
