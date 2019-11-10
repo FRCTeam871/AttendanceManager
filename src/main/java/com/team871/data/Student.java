@@ -6,19 +6,20 @@ import com.team871.util.Settings;
 import com.team871.util.ThrowingRunnable;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class Student implements Comparable<Student>{
     private final String firstName;
     private final String lastName;
 
-    private int id = -1;
+    private String id = null;
     private int grade = -1;
     private Subteam subteam = null;
     private SafeteyFormState safeteyFormState = null;
     private FirstRegistration registration = null;
 
-    Map<String, AttendanceItem> attendance;
+    Map<String, AttendanceItem> attendance = new HashMap<>();
 
     public Student(String firstName, String lastName) {
         this.firstName = firstName;
@@ -34,11 +35,14 @@ public class Student implements Comparable<Student>{
     }
 
     public void populateFromRow(int row, @NotNull StudentTable.SheetConfig sheet) {
-        checkAndTry(sheet.getValue(row, "SID"), v -> id = Integer.parseInt(v));
+        id = sheet.getValue(row, "SID");
+
+        Integer val = sheet.getIntValue(row, "Grade");
+        grade = val == null ? -1 : val;
+
         checkAndTry(sheet.getValue(row, "Safety"), v -> safeteyFormState = SafeteyFormState.valueOf(v));
-        checkAndTry(sheet.getValue(row, "First Reg."), v -> registration = FirstRegistration.valueOf(v));
-        checkAndTry(sheet.getValue(row, "Grade"), v -> grade = Integer.parseInt(v));
-        checkAndTry(sheet.getValue(row, "Subteam"), v -> subteam = Subteam.valueOf(v));
+        checkAndTry(sheet.getValue(row, "First Reg."), v -> registration = FirstRegistration.getByKey(v));
+        checkAndTry(sheet.getValue(row, "Team"), v -> subteam = Subteam.valueOf(v));
     }
 
     public void processAttendance(int row, @NotNull StudentTable.SheetConfig sheet) {
@@ -49,6 +53,9 @@ public class Student implements Comparable<Student>{
             final String date = sheet.getHeaderValue(i);
             if(Settings.isNullOrEmpty(date)) {
                 continue;
+            }
+            if("Pre".equals(date)) {
+                break;
             }
 
             String cellValue = sheet.getValue(row, date);
@@ -82,7 +89,7 @@ public class Student implements Comparable<Student>{
         return result;
     }
 
-    public int getId() {
+    public String getId() {
         return id;
     }
 }

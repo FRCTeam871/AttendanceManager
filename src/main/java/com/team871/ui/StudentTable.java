@@ -14,9 +14,10 @@ import java.util.*;
 
 public class StudentTable {
     private static final Logger logger = LoggerFactory.getLogger(StudentTable.class);
+    private static final DataFormatter FORMATTER = new DataFormatter();
 
     private final Map<String, Map<String, Student>> studentsByName = new TreeMap<>();
-    private final Map<Integer, Student> studentsById = new HashMap<>();
+    private final Map<String, Student> studentsById = new HashMap<>();
     private final Path worksheetPath;
 
     private Workbook workbook;
@@ -42,7 +43,7 @@ public class StudentTable {
                     continue;
                 }
 
-                columnMap.put(cell.getStringCellValue(), i);
+                columnMap.put(FORMATTER.formatCellValue(cell), i);
             }
         }
 
@@ -52,7 +53,16 @@ public class StudentTable {
                 return null;
             }
 
-            return sheet.getRow(row + headerRow).getCell(cellIndex).getStringCellValue();
+            return FORMATTER.formatCellValue(sheet.getRow(row + headerRow + 1).getCell(cellIndex));
+        }
+
+        public Integer getIntValue(int row, String column) {
+            final Integer cellIndex = columnMap.get(column);
+            if(cellIndex == null) {
+                return null;
+            }
+
+            return (int)sheet.getRow(row + headerRow + 1).getCell(cellIndex).getNumericCellValue();
         }
 
         public String getHeaderValue(int cell) {
@@ -65,6 +75,10 @@ public class StudentTable {
 
         public int getColumnCount() {
             return columnCount;
+        }
+
+        public boolean rowExists(int row) {
+            return sheet.getRow(row + headerRow + 1) != null;
         }
     }
 
@@ -93,6 +107,10 @@ public class StudentTable {
             // Now process the sheets into a set of students and their attendances.
             // Start with the roster
             for(int i = 0; i < roster.getDataRowCount(); i++) {
+                if(!roster.rowExists(i)) {
+                    continue;
+                }
+
                 final String lastName = roster.getValue(i, "Last");
                 final String firstName = roster.getValue(i, "First");
 
@@ -104,17 +122,26 @@ public class StudentTable {
 
                 final Student student = new Student(firstName, lastName);
                 student.populateFromRow(i, roster);
+                byFirstName.put(firstName, student);
 
                 // If an ID existed, add to the mapping
-                if(student.getId() >= 0) {
+                if(student.getId() != null) {
                     studentsById.put(student.getId(), student);
                 }
             }
 
             // Then process the attendance
             for(int i = 0; i<attendance.getDataRowCount(); i++) {
-                final String lastName = roster.getValue(i, "Last");
-                final String firstName = roster.getValue(i, "First");
+                if(!attendance.rowExists(i)) {
+                    continue;
+                }
+
+                final String lastName = attendance.getValue(i, "Last");
+                if("#".equals(lastName)) {
+                    break;
+                }
+
+                final String firstName = attendance.getValue(i, "First");
 
                 final Map<String, Student> byFirstName = studentsByName.get(lastName);
                 if(byFirstName == null || byFirstName.isEmpty()) {
@@ -128,7 +155,7 @@ public class StudentTable {
                     continue;
                 }
 
-                student.processAttendance(i, roster);
+                student.processAttendance(i, attendance);
             }
         } catch (IOException e) {
             throw new RobotechException("Failed to load attendance file", e);
