@@ -4,6 +4,7 @@ import com.team871.ui.LoginType;
 import com.team871.ui.StudentTable;
 import com.team871.util.Settings;
 import com.team871.util.ThrowingRunnable;
+import org.apache.poi.ss.usermodel.Row;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
@@ -12,6 +13,7 @@ import java.util.Map;
 public class Student implements Comparable<Student>{
     private final String firstName;
     private final String lastName;
+    private final Map<String, AttendanceItem> attendance = new HashMap<>();
 
     private String id = null;
     private int grade = -1;
@@ -19,7 +21,8 @@ public class Student implements Comparable<Student>{
     private SafeteyFormState safeteyFormState = null;
     private FirstRegistration registration = null;
 
-    Map<String, AttendanceItem> attendance = new HashMap<>();
+    private Row rosterRow;
+    private Row attendanceRow;
 
     public Student(String firstName, String lastName) {
         this.firstName = firstName;
@@ -35,6 +38,7 @@ public class Student implements Comparable<Student>{
     }
 
     public void populateFromRow(int row, @NotNull StudentTable.SheetConfig sheet) {
+        rosterRow = sheet.getRow(row);
         id = sheet.getValue(row, "SID");
 
         Integer val = sheet.getIntValue(row, "Grade");
@@ -46,6 +50,7 @@ public class Student implements Comparable<Student>{
     }
 
     public void processAttendance(int row, @NotNull StudentTable.SheetConfig sheet) {
+        attendanceRow = sheet.getRow(row);
         final int firstDataColumn = Settings.getInstance().getAttendanceFirstDataColumn();
 
         // This is actually pretty terrible.
@@ -91,5 +96,40 @@ public class Student implements Comparable<Student>{
 
     public String getId() {
         return id;
+    }
+
+    public Row getAttendanceRow() {
+        return attendanceRow;
+    }
+
+    public boolean isPresent(String date) {
+
+    }
+
+    public void setPresent(String date) {
+
+    }
+
+    public boolean isSignedIn(String date) {
+
+    }
+
+    public boolean isSignedOut(String date) {
+
+    }
+
+    public void signIn(String date) {
+
+    }
+
+    public void signOut(String date) {
+
+    }
+
+    public void setId(String sid) {
+        if(id != null) {
+            throw new IllegalStateException("ID is already set for " + firstName + " " + lastName);
+        }
+        this.id = sid;
     }
 }

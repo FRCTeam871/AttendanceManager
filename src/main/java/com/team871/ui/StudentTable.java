@@ -19,10 +19,18 @@ public class StudentTable {
     private final Map<String, Map<String, Student>> studentsByName = new TreeMap<>();
     private final Map<String, Student> studentsById = new HashMap<>();
     private final Path worksheetPath;
+    private final List<Student> allStudents = new ArrayList<>();
 
     private Workbook workbook;
     private SheetConfig roster;
     private SheetConfig attendance;
+
+    private final List<String> attendanceDates = new ArrayList<>();
+    private int currentDateColumn = -1;
+
+    public Map<String, Student> getStudentsWithLastName(String lastName) {
+        return studentsByName.getOrDefault(lastName, Collections.emptyMap());
+    }
 
     public static class SheetConfig {
         private final Sheet sheet;
@@ -80,6 +88,10 @@ public class StudentTable {
         public boolean rowExists(int row) {
             return sheet.getRow(row + headerRow + 1) != null;
         }
+
+        public Row getRow(int row) {
+            return sheet.getRow(row + headerRow + 1);
+        }
     }
 
     public StudentTable(Path worksheetPath) throws RobotechException {
@@ -123,10 +135,19 @@ public class StudentTable {
                 final Student student = new Student(firstName, lastName);
                 student.populateFromRow(i, roster);
                 byFirstName.put(firstName, student);
+                allStudents.add(student);
 
                 // If an ID existed, add to the mapping
                 if(student.getId() != null) {
                     studentsById.put(student.getId(), student);
+                }
+            }
+
+            // Build a list of dates
+            for(int i = Settings.getInstance().getAttendanceFirstDataColumn(); i < roster.getColumnCount(); i++) {
+                final String value = attendance.getHeaderValue(i);
+                if(Settings.getInstance().getDate().equals(value)) {
+                    currentDateColumn = i;
                 }
             }
 
@@ -160,5 +181,25 @@ public class StudentTable {
         } catch (IOException e) {
             throw new RobotechException("Failed to load attendance file", e);
         }
+    }
+
+    public int getStudentCount() {
+        return allStudents.size();
+    }
+
+    public int getLastColumn() {
+        return roster.getColumnCount();
+    }
+
+    public String getValueAt(int row, int col) {
+        return FORMATTER.formatCellValue(attendance.getRow(row).getCell(col));
+    }
+
+    public int getCurrentDateColumn() {
+        return currentDateColumn;
+    }
+
+    public Student getStudentById(String id) {
+        return studentsById.get(id);
     }
 }

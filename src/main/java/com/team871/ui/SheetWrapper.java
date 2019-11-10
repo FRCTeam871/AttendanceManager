@@ -1,22 +1,20 @@
 package com.team871.ui;
 
 import com.team871.util.Settings;
-import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
-import java.awt.Color;
-import java.awt.Font;
 import java.awt.*;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.geom.AffineTransform;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.nio.file.Path;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -33,27 +31,13 @@ public class SheetWrapper implements MouseWheelListener {
     private static final DateFormat dateFormat = new SimpleDateFormat("H:mm");
     private static final int NAME_COL_WIDTH = 100;
 
-    private File file;
+    private static final int NUM_COLUMN = 0;
+    private static final int LAST_NAME_COLUMN = 1;
+    private static final int FIRST_NAME_COLUMN = 2;
 
-    private Workbook workbook;
-    private FormulaEvaluator eval;
-    private DataFormatter formatter;
+    StudentTable table;
+
     private Font tableFont;
-    private int firstCol;
-    private int lastCol;
-    private int maxRow;
-
-    private Sheet attendanceSheet;
-    private Row headerRow;
-    private int lastNameColumn = -1;
-    private int firstNameColumn = -1;
-
-    private Sheet rosterSheet;
-    private Row rosterHeader;
-    private int sidColumn = -1;
-    private int rosterLastNameColumn = -1;
-    private int rosterFirstNameColumn = -1;
-
 
     private float destScroll = 0f;
     private float currScroll = 0f;
@@ -63,8 +47,6 @@ public class SheetWrapper implements MouseWheelListener {
     private int highlightTimer;
     private int highlightTimerMax = 120;
 
-    private int currentDateColumn;
-
     private int scrollTimer = 0;
     private int scrollAcc = 0;
 
@@ -72,27 +54,9 @@ public class SheetWrapper implements MouseWheelListener {
     private Rectangle dimension;
     private int maxScroll;
 
-    public SheetWrapper(Path u) {
+    public SheetWrapper(StudentTable table) {
         try {
-            System.out.println("Loading attendanceSheet from URL: " + u);
-            this.file = u.toFile();
-            System.out.println("Loading File: " + file.getAbsolutePath());
-            InputStream is = new FileInputStream(file);
-            workbook = WorkbookFactory.create(is);
-
-            eval = workbook.getCreationHelper().createFormulaEvaluator();
-            formatter = new DataFormatter();
-
-            System.out.println("Available Workbook Sheets:");
-            for(int i = 0; i < workbook.getNumberOfSheets(); i++){
-                System.out.println(workbook.getSheetName(i));
-            }
-
-            String using = Settings.getInstance().getAttendanceSheet();
-            System.out.printf("Using Sheet: \"%s\"\n", using);
-
-            attendanceSheet = workbook.getSheet(using);
-            rosterSheet = workbook.getSheet(Settings.getInstance().getRosterSheet());
+            this.table = table;
 
             init();
         }catch(Exception e){
@@ -103,143 +67,7 @@ public class SheetWrapper implements MouseWheelListener {
     }
 
     private void init() {
-        headerRow = attendanceSheet.getRow(1);
-
-        configureRosterSheet();
-        configureAttendenceSheet();
-
-        firstCol = -1;
-        lastCol = -1;
-        for(int i = 0; i <= headerRow.getLastCellNum(); i++) {
-            Cell cell = headerRow.getCell(i);
-
-            // The last column is a formula column, ignore it.
-            if(i > 0 && cell != null && cell.getCellType() == CellType.FORMULA) {
-                break;
-            }
-
-            final String cellVal = formatCell(cell);
-            if(cellVal != null && !cellVal.isEmpty()) {
-                if(firstCol == -1) {
-                    firstCol = i;
-                }
-
-                lastCol = i;
-            }
-        }
-
-        maxRow = -1;
-
-        for(int i = headerRow.getRowNum(); i < attendanceSheet.getPhysicalNumberOfRows(); i++){
-            if(attendanceSheet.getRow(i) != null) {
-                String headerVal = formatCell(attendanceSheet.getRow(i).getCell(firstCol));
-                if (headerVal != null && !headerVal.isEmpty()) {
-                    maxRow = i;
-                }
-            }
-        }
-
-        clearCache();
         updateDate();
-    }
-
-    private void configureRosterSheet() {
-        rosterHeader = rosterSheet.getRow(1);
-
-        for(int i = 0; i <= rosterHeader.getLastCellNum(); i++) {
-            Cell cell = rosterHeader.getCell(i);
-            final String headerVal = formatCell(cell);
-            if("SID".equalsIgnoreCase(headerVal)) {
-                sidColumn = i;
-
-            } else if("Last".equalsIgnoreCase(headerVal)) {
-                rosterLastNameColumn = i;
-            } else if("First".equalsIgnoreCase(headerVal)) {
-                rosterFirstNameColumn = i;
-            }
-        }
-
-        if(sidColumn < 0) {
-            sidColumn = headerRow.getLastCellNum() + 1;
-
-            headerRow.createCell(sidColumn).setCellValue("SID");
-
-            for (int i = rosterHeader.getRowNum() + 1; i < rosterSheet.getPhysicalNumberOfRows(); i++) {
-                if (rosterSheet.getRow(i) != null) {
-                    rosterSheet.getRow(i).createCell(sidColumn).setCellValue("");
-                }
-            }
-        }
-
-        if(sidColumn < 0 || rosterFirstNameColumn < 0 || rosterLastNameColumn < 0) {
-            throw new IllegalStateException("Sheet is missing first/last/sid columns in roster");
-        }
-    }
-
-    private void configureAttendenceSheet() {
-        headerRow = attendanceSheet.getRow(1);
-        for(int i = 0; i <= headerRow.getLastCellNum(); i++) {
-            Cell cell = headerRow.getCell(i);
-            final String headerVal = formatCell(cell);
-            if("Last".equalsIgnoreCase(headerVal)) {
-                lastNameColumn = i;
-            } else if("First".equalsIgnoreCase(headerVal)) {
-                firstNameColumn = i;
-            }
-        }
-    }
-
-    public String sidToName(String sid) {
-        for(int i = rosterHeader.getRowNum()+1; i <= rosterSheet.getPhysicalNumberOfRows(); i++) {
-            final Row currentRow = rosterSheet.getRow(i);
-            if(currentRow == null) continue;
-
-            final Cell sidCell = currentRow.getCell(sidColumn);
-            if(sidCell == null) continue;
-
-            final String cellSidValue = formatCell(sidCell);
-            if(cellSidValue == null || cellSidValue.isEmpty()) continue;
-
-            if(cellSidValue.equals(sid)) {
-                return getNameFromRow(currentRow, rosterFirstNameColumn, rosterLastNameColumn);
-            }
-        }
-
-        return null;
-    }
-
-    public String nameToSid(String name) {
-        final String[] parts = name.trim().split("\\s+");
-        if(parts.length != 2) {
-            throw new IllegalArgumentException("The name doesn't have two parts!");
-        }
-
-        for(int i = rosterHeader.getRowNum() + 1; i <= rosterSheet.getPhysicalNumberOfRows(); i++) {
-            final Row currentRow = rosterSheet.getRow(i);
-            final String maybeName = getNameFromRow(currentRow, rosterFirstNameColumn, rosterLastNameColumn);
-
-            if(name.equalsIgnoreCase(maybeName)) {
-                final Cell sidCell = currentRow.getCell(sidColumn);
-                if(sidCell == null) {
-                    break;
-                }
-
-                final String sid = formatCell(sidCell);
-                return sid == null || sid.isEmpty() ? null: sid;
-            }
-        }
-
-        return null;
-    }
-
-    private String getNameFromRow(Row r, int fNameColumn, int lNameColumn) {
-        final Cell firstNameCell = r.getCell(fNameColumn);
-        final Cell lastNameCell = r.getCell(lNameColumn);
-        if(firstNameCell == null || lastNameCell == null) {
-            return null;
-        }
-
-        return formatCell(firstNameCell) + " " + formatCell(lastNameCell);
     }
 
     public void tick(int time) {
@@ -266,12 +94,19 @@ public class SheetWrapper implements MouseWheelListener {
             }
         }
 
-        if(destScroll > 0) destScroll = 0;
-        if(-destScroll > maxScroll) destScroll = -maxScroll;
+        if(destScroll > 0) {
+            destScroll = 0;
+        }
+
+        if(-destScroll > maxScroll) {
+            destScroll = -maxScroll;
+        }
 
         currScroll += (destScroll - currScroll) / speed;
 
-        if(highlightTimer > 0) highlightTimer--;
+        if(highlightTimer > 0) {
+            highlightTimer--;
+        }
     }
 
     Color CURRENT_DATE_COL = new Color(225, 210, 110);
@@ -284,14 +119,14 @@ public class SheetWrapper implements MouseWheelListener {
 
     private int getCellWidth(int column, Graphics g) {
         if(column == 0) {
-            return g.getFontMetrics().stringWidth(Integer.toString(maxRow)) + 10;
+            return g.getFontMetrics().stringWidth(Integer.toString(table.getStudentCount())) + 10;
         }
 
-        if(column == firstNameColumn || column == lastNameColumn) {
+        if(column == FIRST_NAME_COLUMN || column == LAST_NAME_COLUMN) {
             return NAME_COL_WIDTH;
         }
 
-        return (int)((dimension.width - (NAME_COL_WIDTH * 2f)) / (lastCol - firstNameColumn));
+        return (int)((dimension.width - (NAME_COL_WIDTH * 2f)) / (table.getStudentCount() - FIRST_NAME_COLUMN));
     }
 
     public void drawTable(Graphics2D g) {
@@ -302,18 +137,18 @@ public class SheetWrapper implements MouseWheelListener {
 
         final AffineTransform oTrans = g.getTransform();
         g.translate(0, currScroll);
-        for (int r = headerRow.getRowNum() + 1; r <= maxRow; r++) {
+        for (int r = 0; r <= table.getStudentCount(); r++) {
             drawRow(g, cy, 0, r);
             cy += cellHeight;
         }
         g.setTransform(oTrans);
 
-        drawRow(g, 0, 0, headerRow.getRowNum());
+        drawRow(g, 0, 0, -1);
     }
 
     private void drawRow(Graphics g, int cy, int cx, int r) {
-        for (int i = firstCol; i <= lastCol; i++) {
-            final String cellVal = fetchCached(r, i);
+        for (int i = 0; i <= table.getLastColumn(); i++) {
+            final String cellVal = table.getValueAt(r, i);
 
             double hours = 0.0;
             if(cellVal != null && !cellVal.isEmpty()) {
@@ -330,7 +165,7 @@ public class SheetWrapper implements MouseWheelListener {
 
             g.setColor(r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE);
 
-            if(i == currentDateColumn) {
+            if(i == table.getCurrentDateColumn()) {
                 if(Settings.getInstance().getLoginType() == LoginType.IN_OUT && cellVal != null && cellVal.startsWith("in")) {
                     g.setColor(Color.ORANGE);
                 } else if(present) {
@@ -338,20 +173,20 @@ public class SheetWrapper implements MouseWheelListener {
                 } else {
                     g.setColor(CURRENT_DATE_COL);
                 }
-            } else if(i > firstCol + 1 && i < currentDateColumn && r > headerRow.getRowNum()) {
+            } else if(i > 1 && i < table.getCurrentDateColumn() && r > Settings.getInstance().getAttendanceHeaderRow()) {
                 if(!hasValue) {
                     g.setColor(r % 2 == 0 ? ABSENT_EVEN : ABSENT_ODD);
                 } else {
                     g.setColor(r % 2 == 0 ? PRESENT_EVEN : PRESENT_ODD);
                 }
-            }else if(i > currentDateColumn && i < lastCol && r > 1) {
+            }else if(i > table.getCurrentDateColumn() && i < table.getStudentCount() && r > 1) {
                 g.setColor(Color.GRAY);
             }
 
             if(highlightRow != null && r == highlightRow.getRowNum()) {
-                if(i <= firstNameColumn) {
+                if(i <= FIRST_NAME_COLUMN) {
                     g.setColor(Color.YELLOW);
-                } else if(i == currentDateColumn) {
+                } else if(i == table.getCurrentDateColumn()) {
                     g.fillRect(cx, cy, cw, ch);
 
                     int localMax = highlightTimerMax / 2;
@@ -364,12 +199,12 @@ public class SheetWrapper implements MouseWheelListener {
                     float a = (float)(-Math.cos(th)+1)/2f;
 
                     g.setColor(new Color(0f, 1f, 0f, a));
-                } else if(i < currentDateColumn) {
+                } else if(i < table.getCurrentDateColumn()) {
                     g.fillRect(cx, cy, cw, ch);
 
                     int localMax = highlightTimerMax / 2;
 
-                    float thruBar = (i-2f) / (currentDateColumn-2f);
+                    float thruBar = (i-2f) / (table.getCurrentDateColumn()-2f);
 
                     int timer = highlightTimerMax - highlightTimer - (int)(thruBar*highlightTimerMax/4);
                     if(timer < 0) timer = 0;
@@ -386,8 +221,8 @@ public class SheetWrapper implements MouseWheelListener {
             g.setColor(Color.BLACK);
             g.drawRect(cx, cy, cw, ch);
 
-            if(i > firstNameColumn && i <= currentDateColumn) {
-                if(r == headerRow.getRowNum()) {
+            if(i > FIRST_NAME_COLUMN && i <= table.getCurrentDateColumn()) {
+                if(r == Settings.getInstance().getAttendanceHeaderRow()) {
                     g.drawString(cellVal, cx + 4, cy + ch/2 + g.getFont().getSize()/2);
                 } else if(Settings.getInstance().getLoginType() == LoginType.IN_OUT) {
                     String val = cellVal;
@@ -406,68 +241,33 @@ public class SheetWrapper implements MouseWheelListener {
         }
     }
 
-    public void setSIDByFullName(String firstName, String lastName, String sid) {
-        Row row = getRowByNameInternal(rosterSheet, rosterHeader.getRowNum(), rosterFirstNameColumn, rosterLastNameColumn, firstName, lastName);
-        if(row == null) {
-            throw new IllegalArgumentException(firstName + " " + lastName + " was not found!");
-        }
+    public String sidToName(String sid) {
+        for(int i = rosterHeader.getRowNum()+1; i <= rosterSheet.getPhysicalNumberOfRows(); i++) {
+            final Row currentRow = rosterSheet.getRow(i);
+            if(currentRow == null) continue;
 
-        Cell c = row.getCell(sidColumn);
-        if(c == null) {
-            c = row.createCell(sidColumn);
-        }
+            final Cell sidCell = currentRow.getCell(sidColumn);
+            if(sidCell == null) continue;
 
-        c.setCellType(CellType.STRING);
-        c.setCellValue(sid);
-        clearCacheRow(row.getRowNum());
-    }
+            final String cellSidValue = formatCell(sidCell);
+            if(cellSidValue == null || cellSidValue.isEmpty()) continue;
 
-    // TODO This should take a full name, or at least assert that the array is size 1
-    public void setSIDByLastName(String lastName, String sid) {
-        Row row = getRowByLastNameInternal(rosterSheet, rosterHeader.getRowNum(), rosterLastNameColumn, lastName).get(0);
-        if(row.getCell(sidColumn) == null) {
-            row.createCell(sidColumn);
-        }
-
-        row.getCell(sidColumn).setCellType(CellType.STRING);
-        row.getCell(sidColumn).setCellValue(sid);
-        clearCacheRow(row.getRowNum());
-    }
-
-    private String fetchCached(int r, int i) {
-        if(cache == null){
-            return formatCell(attendanceSheet.getRow(r).getCell(i));
-        }
-
-        int cr = r - headerRow.getRowNum();
-        int ci = i - firstCol;
-        if(cache[cr][ci] != null) return cache[cr][ci];
-        return cache[cr][ci] = formatCell(attendanceSheet.getRow(r).getCell(i));
-    }
-
-    private void clearCache(){
-        cache = new String[maxRow - headerRow.getRowNum() + 1][];
-        for(int i = 0; i < cache.length; i++){
-            cache[i] = new String[lastCol - firstCol + 1];
-        }
-
-        for(int rn = maxRow-1; rn >= headerRow.getRowNum(); rn--) {
-            for (Cell c : attendanceSheet.getRow(rn)) {
-                if (c.getCellType() == CellType.FORMULA) {
-                    eval.evaluateFormulaCell(c);
-                }
+            if(cellSidValue.equals(sid)) {
+                return getNameFromRow(currentRow, rosterFirstNameColumn, rosterLastNameColumn);
             }
         }
+
+        return null;
     }
 
-    private void clearCacheRow(int r){
-        cache[r - headerRow.getRowNum()] = new String[lastCol - firstCol + 1];
-
-        for (Cell c : attendanceSheet.getRow(r)) {
-            if (c.getCellType() == CellType.FORMULA) {
-                eval.evaluateFormulaCell(c);
-            }
+    private String getNameFromRow(Row r, int fNameColumn, int lNameColumn) {
+        final Cell firstNameCell = r.getCell(fNameColumn);
+        final Cell lastNameCell = r.getCell(lNameColumn);
+        if(firstNameCell == null || lastNameCell == null) {
+            return null;
         }
+
+        return formatCell(firstNameCell) + " " + formatCell(lastNameCell);
     }
 
     private Row getRowByNameInternal(Sheet s, int headerRow, int fNameIdx, int lNameIdx, String first, String last) {
@@ -503,17 +303,6 @@ public class SheetWrapper implements MouseWheelListener {
         return getRowByNameInternal(attendanceSheet, headerRow.getRowNum(), firstNameColumn, lastNameColumn, first, last);
     }
 
-    public Row getRowWithNoSIDByFullName(String first, String last) {
-        if(first.isEmpty() || last.isEmpty())
-            return null;
-
-        if(nameToSid(first + " " + last) != null) {
-            return null;
-        }
-
-        return getRowByFullName(first, last);
-    }
-
     private List<Row> getRowByLastNameInternal(Sheet s, int headerIdx, int lNameIdx, String lName) {
         if(lName.isEmpty())
             return Collections.emptyList();
@@ -536,23 +325,7 @@ public class SheetWrapper implements MouseWheelListener {
         return getRowByLastNameInternal(attendanceSheet, headerRow.getRowNum(), lastNameColumn, name);
     }
 
-    public List<Row> getRowWithNoSIDByLastName(String name) {
-        List<Row> ret = getRowByLastNameInternal(attendanceSheet, headerRow.getRowNum(), lastNameColumn, name);
-
-        //TODO: There is a potential bug here if the rows are out of order between the two sheets
-        for(int i = ret.size()-1; i >= 0; i--) {
-            final String maybeSid = nameToSid(formatCell(ret.get(i).getCell(firstNameColumn)) + " " + name);
-
-            // Throw away anyone who'se already got an SID
-            if(maybeSid != null && !maybeSid.isEmpty()) {
-                ret.remove(i);
-            }
-        }
-
-        return ret;
-    }
-
-    public void highlightRow(Row row){
+    public void highlightRow(Row row) {
         highlightRow = row;
         highlightTimer = highlightTimerMax;
         scrollTimer = 0;
@@ -575,110 +348,12 @@ public class SheetWrapper implements MouseWheelListener {
         return -1;
     }
 
-    public boolean setPresent(String sid, boolean present){
-        Row row = getRowBySID(sid);
-        if(row != null && currentDateColumn != -1){
-            unsaved = true;
-
-            //System.out.println("IT WAS " + formatCell(row.getCell(currentDateColumn)));
-            if(present){
-                row.getCell(currentDateColumn).setCellValue(1);
-            }else{
-                row.getCell(currentDateColumn).setCellValue("");
-            }
-            //System.out.println("THE OUTPUT IS " + formatCell(row.getCell(currentDateColumn)));
-            clearCacheRow(row.getRowNum());
-            return true;
-        }
-
-        return false;
-    }
-
-    public boolean isSignedIn(String sid){
-        Row row = getRowBySID(sid);
-        if(row != null && currentDateColumn != -1){
-            String val = formatCell(row.getCell(currentDateColumn));
-            if(val != null && val.startsWith("in")){
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public boolean isSignedInByLastName(String lastName){
-        Row row = getRowsByLastName(lastName).get(0);
-        if(row != null && currentDateColumn != -1){
-            String val = formatCell(row.getCell(currentDateColumn));
-            if(val != null && val.startsWith("in")){
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public boolean isSignedInByFullName(String firstName, String lastName){
-        Row row = getRowByFullName(firstName, lastName);
-        if(row != null && currentDateColumn != -1){
-            String val = formatCell(row.getCell(currentDateColumn));
-            if(val != null && val.startsWith("in")){
-                return true;
-            }
-        }
-        return false;
-    }
-
-
-    public boolean isSignedOut(String sid){
-        Row row = getRowBySID(sid);
-        if(row != null && currentDateColumn != -1){
-            String val = formatCell(row.getCell(currentDateColumn));
-            if(val != null && !val.startsWith("in") && !val.isEmpty()){
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public boolean isSignedOutByLastName(String lastName){
-        Row row = getRowsByLastName(lastName).get(0);
-        if(row != null && currentDateColumn != -1){
-            String val = formatCell(row.getCell(currentDateColumn));
-            if(val != null && !val.startsWith("in") && !val.isEmpty()){
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public boolean isSignedOutByFullName(String firstName, String lastName){
-        Row row = getRowByFullName(firstName, lastName);
-        if(row != null && currentDateColumn != -1){
-            String val = formatCell(row.getCell(currentDateColumn));
-            if(val != null && !val.startsWith("in") && !val.isEmpty()){
-                return true;
-            }
-        }
-        return false;
-    }
-
     private void setCell(Row r, int columnIdx, String value) {
         Cell c = r.getCell(columnIdx);
         if(c == null) {
             c = r.createCell(columnIdx);
         }
         c.setCellValue(value);
-    }
-
-    public boolean signInBySID(String sid){
-        Row row = getRowBySID(sid);
-        if(row != null && currentDateColumn != -1){
-            unsaved = true;
-            setCell(row, currentDateColumn, "in" + dateFormat.format(new Date()));
-            clearCacheRow(row.getRowNum());
-            return true;
-        }
-
-        return false;
     }
 
     public boolean signInByLastName(String lastName){
@@ -842,15 +517,6 @@ public class SheetWrapper implements MouseWheelListener {
             return true;
         }
 
-        return false;
-    }
-
-    public boolean isPresent(String sid){
-        Row row = getRowBySID(sid);
-        if(row != null && currentDateColumn != -1){
-            String val = formatCell(row.getCell(currentDateColumn));
-            return val != null && !val.isEmpty();
-        }
         return false;
     }
 

@@ -1,12 +1,12 @@
 package com.team871.ui;
 
+import com.team871.data.Student;
 import com.team871.exception.RobotechException;
 import com.team871.sensing.AbstractBarcodeReader;
 import com.team871.sensing.BarcodeResult;
 import com.team871.sensing.JPOSSense;
 import com.team871.util.BarcodeUtils;
 import com.team871.util.Settings;
-import org.apache.poi.ss.usermodel.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +23,7 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author Dave
@@ -44,9 +45,10 @@ public class AttendanceManager {
 
     private BarcodeResult lastResult;
     private String lastSID = "???";
-    private String lastName = "";
+    private Student student = null;
 
     SheetWrapper sheetWrapper;
+    StudentTable table;
     private boolean enteringNewSID = false;
 
     private SettingsMenu settings;
@@ -101,9 +103,9 @@ public class AttendanceManager {
             }
         });
 
-        StudentTable table = new StudentTable(Settings.getInstance().getSheetPath());
+        table = new StudentTable(Settings.getInstance().getSheetPath());
 
-        sheetWrapper = new SheetWrapper(Settings.getInstance().getSheetPath());
+        sheetWrapper = new SheetWrapper(table);
 
         frame.addMouseWheelListener(sheetWrapper);
         frame.addKeyListener(new KeyAdapter() {
@@ -209,7 +211,7 @@ public class AttendanceManager {
             if (clearTimer == 0) {
                 clearTimer = -1;
                 lastResult = null;
-                lastName = "";
+                student = null;
                 lastSID = "???";
                 barcodeSensor.resetLast();
             }
@@ -283,7 +285,7 @@ public class AttendanceManager {
         lines.add("Scanned: " + (lastResult == null ? "???" : lastResult.getText()));
         lines.add("SID (hash): " + lastSID);
         if (!lastSID.equalsIgnoreCase("???")) {
-            lines.add("Name: " + lastName);
+            lines.add("Name: " + student.getLastName());
         }
 
         for (int i = 0; i < lines.size(); i++) {
@@ -329,15 +331,15 @@ public class AttendanceManager {
 
         logger.info("Scanned: " + result.getText());
         clearTimer = clearTimerMax;
-        lastName = "...";
+        student = null;
         final String newSID = result.getText().replaceFirst("^0+(?!$)", ""); // remove leading zeros;
 
         if(!isValidSID(newSID)) {
             lastResult = result;
             lastSID = "INVALID";
             if (lastResult.getText().equals("871")) {
-                lastSID = "YEA";
-                lastName = "TIM";
+                lastSID = "YEA TIM";
+                student = null;
                 playYeaTim();
             }
             return;
@@ -353,8 +355,9 @@ public class AttendanceManager {
             logger.error("Error validating MD5sum", e);
         }
 
-        if (sheetWrapper.getRowBySID(newSID) != null) {
-            handleLogin(newSID);
+        final Student student = table.getStudentById(newSID);
+        if (student != null) {
+            handleLogin(student);
         } else if (!enteringNewSID) {
             enteringNewSID = true;
             SwingUtilities.invokeLater(() -> handleNewSID(newSID));
@@ -366,59 +369,58 @@ public class AttendanceManager {
 
         cancel:
         if (response == JOptionPane.YES_OPTION) {
-            List<Row> rows;
+            Map<String, Student> students;
             String name = null;
             do {
                 name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name for the member associated with this ID:");
                 if (name == null) {
                     break cancel;
                 }
-            } while ((rows = sheetWrapper.getRowWithNoSIDByLastName(name)).isEmpty());
+            } while ((students = table.getStudentsWithLastName(name)).isEmpty());
 
-            if (rows.size() > 1) {
+            Student student;
+            if (students.size() > 1) {
                 String firstName = null;
                 do {
                     firstName = JOptionPane.showInputDialog((firstName != null ? "That name is not present.\n" : "") + "There are multiple people with that last name!\nEnter the first name for the member associated with this ID:");
                     if (firstName == null) {
                         break cancel;
                     }
-                } while (sheetWrapper.getRowWithNoSIDByFullName(firstName, name) == null);
-
-                sheetWrapper.setSIDByFullName(firstName, name, sid);
+                } while ((student = students.get(firstName)) == null);
             } else {
-                sheetWrapper.setSIDByLastName(name, sid);
+                student = students.values().iterator().next();
             }
 
-            handleLogin(sid);
+            student.setId(sid);
+            handleLogin(student);
         }
 
         enteringNewSID = false;
     }
 
-    private void handleLogin(String sid) {
-        sheetWrapper.highlightRow(sheetWrapper.getRowBySID(sid));
+    private void handleLogin(Student student) {
+        sheetWrapper.highlightRow(student.getAttendanceRow());
         if (barcodeSensor instanceof JPOSSense) {
             ((JPOSSense) barcodeSensor).dance();
         }
 
+        final String today = Settings.getInstance().getDate();
         if (Settings.getInstance().getLoginType() == LoginType.IN_ONLY) {
-            if (!sheetWrapper.isPresent(sid)) {
-                if (sheetWrapper.setPresent(sid, true)) {
-                    flashTimer = flashTimerMax;
-                }
+            if (!student.isPresent(today)) {
+                student.setPresent(today);
+                flashTimer = flashTimerMax;
             }
         } else if (Settings.getInstance().getLoginType() == LoginType.IN_OUT) {
-            if (!sheetWrapper.isSignedIn(sid) && !sheetWrapper.isSignedOut(sid)) {
-                if (sheetWrapper.signInBySID(sid)) {
-                    flashTimer = flashTimerMax;
-                }
-            } else if (sheetWrapper.isSignedIn(sid)) {
-                if (sheetWrapper.signOutBySID(sid)) {
-                    flashTimer = flashTimerMax;
-                }
+            if (!student.isSignedIn(today) && !student.isSignedOut(today)) {
+                student.signIn(today);
+                flashTimer = flashTimerMax;
+            } else if (student.isSignedIn(today)) {
+                student.signOut(today);
+                flashTimer = flashTimerMax;
             }
         }
-        lastName = sheetWrapper.sidToName(sid);
+
+        this.student = student;
     }
 
     private void handleAdmin(BarcodeResult result) {
