@@ -102,28 +102,30 @@ public class Student implements Comparable<Student>{
         return attendanceRow;
     }
 
-    public boolean isPresent(String date) {
-
-    }
-
-    public void setPresent(String date) {
-
-    }
-
     public boolean isSignedIn(String date) {
-
+        return attendance.get(date) != null;
     }
 
     public boolean isSignedOut(String date) {
+        final AttendanceItem item = attendance.get(date);
+        if(item == null) {
+            return false;
+        }
 
+        return item.getOutTime() != null;
     }
 
     public void signIn(String date) {
-
+        attendance.computeIfAbsent(date, AttendanceItem::new);
     }
 
     public void signOut(String date) {
+        final AttendanceItem item = attendance.get(date);
+        if(item == null) {
+            return;
+        }
 
+        item.signOut();
     }
 
     public void setId(String sid) {

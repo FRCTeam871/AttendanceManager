@@ -47,7 +47,7 @@ public class AttendanceManager {
     private String lastSID = "???";
     private Student student = null;
 
-    SheetWrapper sheetWrapper;
+    TableRenderer tableRenderer;
     StudentTable table;
     private boolean enteringNewSID = false;
 
@@ -105,16 +105,16 @@ public class AttendanceManager {
 
         table = new StudentTable(Settings.getInstance().getSheetPath());
 
-        sheetWrapper = new SheetWrapper(table);
+        tableRenderer = new TableRenderer(table);
 
-        frame.addMouseWheelListener(sheetWrapper);
+        frame.addMouseWheelListener(tableRenderer);
         frame.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_S && e.isControlDown()) {
                     showSaveDialog();
                 } else if(e.getKeyCode() == KeyEvent.VK_Q && e.isControlDown()) {
-                    if (sheetWrapper.hasUnsaved()) {
+                    if (table.hasUnsaved()) {
                         int result = JOptionPane.showConfirmDialog(frame.getCanvas(), "You have unsaved changes!\nDo you want to save?", frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
 
                         switch (result) {
@@ -203,7 +203,7 @@ public class AttendanceManager {
         }
 
         barcodeSensor.tick(time);
-        sheetWrapper.tick(time);
+        tableRenderer.tick(time);
         settings.tick(time);
 
         if (clearTimer > 0) {
@@ -306,8 +306,8 @@ public class AttendanceManager {
         g.setClip(tableRect);
         g.translate(tableRect.x, tableRect.y);
 
-        sheetWrapper.setDimension(tableRect);
-        sheetWrapper.drawTable(g);
+        tableRenderer.setDimension(tableRect);
+        tableRenderer.drawTable(g);
 
         g.setTransform(tr);
     }
@@ -399,27 +399,20 @@ public class AttendanceManager {
     }
 
     private void handleLogin(Student student) {
-        sheetWrapper.highlightRow(student.getAttendanceRow());
         if (barcodeSensor instanceof JPOSSense) {
             ((JPOSSense) barcodeSensor).dance();
         }
 
         final String today = Settings.getInstance().getDate();
-        if (Settings.getInstance().getLoginType() == LoginType.IN_ONLY) {
-            if (!student.isPresent(today)) {
-                student.setPresent(today);
-                flashTimer = flashTimerMax;
-            }
-        } else if (Settings.getInstance().getLoginType() == LoginType.IN_OUT) {
-            if (!student.isSignedIn(today) && !student.isSignedOut(today)) {
-                student.signIn(today);
-                flashTimer = flashTimerMax;
-            } else if (student.isSignedIn(today)) {
-                student.signOut(today);
-                flashTimer = flashTimerMax;
-            }
+        if (!student.isSignedIn(today)) {
+            student.signIn(today);
+            flashTimer = flashTimerMax;
+        } else if (student.isSignedIn(today)) {
+            student.signOut(today);
+            flashTimer = flashTimerMax;
         }
 
+        tableRenderer.highlightRow(student.getAttendanceRow());
         this.student = student;
     }
 
@@ -439,16 +432,16 @@ public class AttendanceManager {
     }
 
     private void showSaveDialog() {
-        sheetWrapper.showNotSignedOutDialog();
+        tableRenderer.maybeShowNotSignedOutDialog();
 
         final JFileChooser chooser = new JFileChooser();
-        chooser.setSelectedFile(sheetWrapper.getFile());
+        chooser.setSelectedFile(table.getFile());
         chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
         chooser.setMultiSelectionEnabled(false);
         chooser.showOpenDialog(frame.getCanvas());
 
         final File f = chooser.getSelectedFile();
-        final boolean success = sheetWrapper.save(f);
+        final boolean success = table.save(f);
 
         if (success) {
             JOptionPane.showMessageDialog(frame.getCanvas(), "Attendance saved.", frame.getTitle(), JOptionPane.INFORMATION_MESSAGE);

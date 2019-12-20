@@ -1,5 +1,6 @@
 package com.team871.ui;
 
+import com.team871.data.Student;
 import com.team871.sensing.BarcodeResult;
 import com.team871.sensing.AbstractBarcodeReader;
 import com.team871.util.BarcodeUtils;
@@ -46,9 +47,8 @@ public class SettingsMenu implements TickListener {
             while (true) {
                 res = JOptionPane.showInputDialog(attendanceManager.getCanvas(), (res != null) ? "\"" + res + "\" is not a valid date.\n" : "" + "Enter a new date:");
                 if (res != null) {
-                    if (attendanceManager.sheetWrapper.checkValidDate(res)) {
+                    if (attendanceManager.table.setDate(res)) {
                         Settings.getInstance().setDate(res);
-                        attendanceManager.sheetWrapper.updateDate();
                         break;
                     }
                 } else {
@@ -60,49 +60,37 @@ public class SettingsMenu implements TickListener {
 
         actions.put(BarcodeUtils.getBarcodeByName("Sign In/Out by Name"), () -> new Thread(() -> {
             lock = true;
-            cancel:
-            {
-                List<Row> rows;
-                String name = null;
-                do {
-                    name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name of the member:");
-                    if (name == null) break cancel;
-                } while ((rows = attendanceManager.sheetWrapper.getRowsByLastName(name)).isEmpty());
-
-                if (rows.size() > 1) {
-                    String firstName = null;
-                    do {
-                        firstName = JOptionPane.showInputDialog((firstName != null ? "That name is not present.\n" : "") + "There are multiple people with that last name!\nEnter the first name of the member:");
-                        if (firstName == null) break cancel;
-                    } while (attendanceManager.sheetWrapper.getRowByFullName(firstName, name) == null);
-
-                    if (Settings.getInstance().getLoginType() == LoginType.IN_ONLY) {
-                        attendanceManager.sheetWrapper.setPresentByFullName(firstName, name, true);
-                        JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed in.");
-                    } else if (Settings.getInstance().getLoginType() == LoginType.IN_OUT) {
-                        if (attendanceManager.sheetWrapper.isSignedInByFullName(firstName, name) && !attendanceManager.sheetWrapper.isSignedOutByFullName(firstName, name)) {
-                            attendanceManager.sheetWrapper.signOutByFullName(firstName, name);
-                            JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed out.");
-                        } else {
-                            attendanceManager.sheetWrapper.signInByFullName(firstName, name);
-                            JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed in.");
-                        }
-                    }
-                } else {
-                    if (Settings.getInstance().getLoginType() == LoginType.IN_ONLY) {
-                        attendanceManager.sheetWrapper.setPresentByLastName(name, true);
-                        JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed in.");
-                    } else if (Settings.getInstance().getLoginType() == LoginType.IN_OUT) {
-                        if (attendanceManager.sheetWrapper.isSignedInByLastName(name) && !attendanceManager.sheetWrapper.isSignedOutByLastName(name)) {
-                            attendanceManager.sheetWrapper.signOutByLastName(name);
-                            JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed out.");
-                        } else {
-                            attendanceManager.sheetWrapper.signInByLastName(name);
-                            JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed in.");
-                        }
-                    }
+            Map<String, Student> students;
+            String name = null;
+            do {
+                name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name of the member:");
+                if (name == null) {
+                    return;
                 }
+            } while ((students = attendanceManager.table.getStudentsByLastName(name)).isEmpty());
+
+            Student student;
+            if (students.size() > 1) {
+                String firstName = null;
+                do {
+                    firstName = JOptionPane.showInputDialog((firstName != null ? "That name is not present.\n" : "") + "There are multiple people with that last name!\nEnter the first name of the member:");
+                    if (firstName == null) {
+                        return;
+                    }
+                } while ((student = students.get(firstName)) == null);
+            } else {
+                student = students.values().stream().findFirst().get();
             }
+
+            final String date = Settings.getInstance().getDate();
+            if (!student.isSignedIn(date)) {
+                student.signIn(date);
+                JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed in.");
+            } else {
+                student.signOut(date);
+                JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed out.");
+            }
+            attendanceManager.tableRenderer.highlightRow(student.getAttendanceRow());
             lock = false;
         }).start());
 
@@ -124,7 +112,6 @@ public class SettingsMenu implements TickListener {
     }
 
     public void render(Graphics2D g, int width, int height) {
-
         g.setColor(Color.LIGHT_GRAY);
         g.fillRect(0, 0, width, height);
 

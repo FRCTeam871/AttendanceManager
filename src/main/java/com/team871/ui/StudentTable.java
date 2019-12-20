@@ -7,7 +7,9 @@ import org.apache.poi.ss.usermodel.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
@@ -27,6 +29,7 @@ public class StudentTable {
 
     private final List<String> attendanceDates = new ArrayList<>();
     private int currentDateColumn = -1;
+    private boolean unsaved = false;
 
     public Map<String, Student> getStudentsWithLastName(String lastName) {
         return studentsByName.getOrDefault(lastName, Collections.emptyMap());
@@ -143,13 +146,7 @@ public class StudentTable {
                 }
             }
 
-            // Build a list of dates
-            for(int i = Settings.getInstance().getAttendanceFirstDataColumn(); i < roster.getColumnCount(); i++) {
-                final String value = attendance.getHeaderValue(i);
-                if(Settings.getInstance().getDate().equals(value)) {
-                    currentDateColumn = i;
-                }
-            }
+            setDate(Settings.getInstance().getDate());
 
             // Then process the attendance
             for(int i = 0; i<attendance.getDataRowCount(); i++) {
@@ -201,5 +198,77 @@ public class StudentTable {
 
     public Student getStudentById(String id) {
         return studentsById.get(id);
+    }
+
+    public Map<String, Student> getStudentsByLastName(String lastName) {
+        final Map<String, Student> byFirstName = studentsByName.get(lastName);
+        if(byFirstName == null || byFirstName.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return Collections.unmodifiableMap(byFirstName);
+    }
+
+    // TODO:  This doesn't work anymore.
+    public boolean hasUnsaved() {
+        return unsaved;
+    }
+
+    public boolean save(File saveTo) {
+        System.out.println("Saving attendance to " + saveTo.getAbsolutePath());
+        try {
+            saveTo.createNewFile(); //create the file if it doesn't exist
+            FileOutputStream out = new FileOutputStream(saveTo);
+            workbook.write(out); // write the workbook to the file
+            out.close();
+        } catch(Exception e) {
+            logger.warn("Error writing spreadsheet: ", e);
+            return false;
+        }
+
+        unsaved = false;
+        return true;
+    }
+
+    public File getFile() {
+        return this.worksheetPath.toFile();
+    }
+
+    public boolean setDate(String date) {
+        final int maybeDateColumn = getColumnIndexByName(date);
+        if(maybeDateColumn > 0) {
+            currentDateColumn = maybeDateColumn;
+            return true;
+        }
+
+        return false;
+    }
+
+    private int getColumnIndexByName(String value) {
+        for(int i = Settings.getInstance().getAttendanceFirstDataColumn(); i < roster.getColumnCount(); i++) {
+            final String currentValue = attendance.getHeaderValue(i);
+            if(Objects.equals(currentValue, value)) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    public boolean areAllSignedOut() {
+        if(Settings.getInstance().getLoginType() == LoginType.IN_ONLY) {
+            return false;
+        }
+
+        return allStudents.stream()
+                .filter(s -> s.isSignedIn(Settings.getInstance().getDate()))
+                .allMatch(s -> s.isSignedOut(Settings.getInstance().getDate()));
+    }
+
+    public void forceSignOut() {
+        final String date = Settings.getInstance().getDate();
+        allStudents.stream()
+                .filter(s -> s.isSignedIn(date))
+                .forEach(s -> s.signOut(date));
     }
 }
