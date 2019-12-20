@@ -44,7 +44,7 @@ public class StudentTable {
         SheetConfig(Sheet sheet, int headerRow) {
             this.sheet = sheet;
             this.headerRow = headerRow;
-            columnMap = new HashMap<>();
+            columnMap = new LinkedHashMap<>();
 
             final Row header = sheet.getRow(headerRow);
             columnCount = header.getLastCellNum();
@@ -145,10 +145,26 @@ public class StudentTable {
                     studentsById.put(student.getId(), student);
                 }
             }
+            allStudents.sort(Comparator.comparing(Student::getLastName).thenComparing(Student::getFirstName));
 
             setDate(Settings.getInstance().getDate());
 
             // Then process the attendance
+            for(int i = Settings.getInstance().getAttendanceFirstDataColumn(); i < attendance.getColumnCount(); i++) {
+                final String headerVal = attendance.getHeaderValue(i);
+                if("Pre".equals(headerVal)) {
+                    break;
+                }
+                switch(headerVal) {
+                    case "ID":
+                    case "First":
+                    case "Last":
+                        break;
+                    default:
+                        attendanceDates.add(headerVal);
+                }
+            }
+
             for(int i = 0; i<attendance.getDataRowCount(); i++) {
                 if(!attendance.rowExists(i)) {
                     continue;
@@ -178,6 +194,10 @@ public class StudentTable {
         } catch (IOException e) {
             throw new RobotechException("Failed to load attendance file", e);
         }
+    }
+
+    public Student getStudent(int index) {
+        return allStudents.get(index);
     }
 
     public int getStudentCount() {
@@ -232,6 +252,10 @@ public class StudentTable {
 
     public File getFile() {
         return this.worksheetPath.toFile();
+    }
+
+    List<String> getAttendanceDates() {
+        return attendanceDates;
     }
 
     public boolean setDate(String date) {

@@ -7,6 +7,8 @@ import com.team871.util.ThrowingRunnable;
 import org.apache.poi.ss.usermodel.Row;
 import org.jetbrains.annotations.NotNull;
 
+import java.time.ZonedDateTime;
+import java.time.temporal.TemporalAccessor;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -133,5 +135,14 @@ public class Student implements Comparable<Student>{
             throw new IllegalStateException("ID is already set for " + firstName + " " + lastName);
         }
         this.id = sid;
+    }
+
+    public ZonedDateTime getSignInTime(String date) {
+        final AttendanceItem item = attendance.get(date);
+        if(item == null) {
+            return null;
+        }
+
+        return item.getInTime();
     }
 }

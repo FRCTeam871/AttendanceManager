@@ -1,32 +1,29 @@
 package com.team871.ui;
 
+import com.team871.data.Student;
+import com.team871.util.BarcodeUtils;
 import com.team871.util.Settings;
 import org.apache.poi.ss.usermodel.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.geom.AffineTransform;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Objects;
 
 public class TableRenderer implements MouseWheelListener {
-    private static final Logger logger = LoggerFactory.getLogger(TableRenderer.class);
-    private static final Pattern inTimePattern = Pattern.compile("in(\\d+):(\\d+)");
     private static final int NAME_COL_WIDTH = 100;
-
-    private static final int NUM_COLUMN = 0;
-    private static final int LAST_NAME_COLUMN = 1;
-    private static final int FIRST_NAME_COLUMN = 2;
 
     private static final Color CURRENT_DATE_COL = new Color(225, 210, 110);
     private static final Color ABSENT_EVEN = new Color(0.7f, 0.35f, 0.35f);
     private static final Color ABSENT_ODD =  new Color(1f, 0.4f, 0.4f);
     private static final Color PRESENT_EVEN = new Color(0.3f, 0.65f, 0.3f);
     private static final Color PRESENT_ODD = new Color(0.4f, 1f, 0.4f);
+
+    private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     private final StudentTable table;
 
@@ -35,6 +32,8 @@ public class TableRenderer implements MouseWheelListener {
     private float destScroll = 0f;
     private float currScroll = 0f;
     private int cellHeight = 25;
+    private int indexColumnWidth = 0;
+    private int attendanceColumnWidth = 0;
 
     private Row highlightRow;
     private int highlightTimer;
@@ -98,6 +97,14 @@ public class TableRenderer implements MouseWheelListener {
     }
 
     public void drawTable(Graphics2D g) {
+        if(indexColumnWidth <= 0) {
+            indexColumnWidth = g.getFontMetrics().stringWidth(Integer.toString(table.getStudentCount())) + 10;
+        }
+
+        if(attendanceColumnWidth <= 0) {
+            attendanceColumnWidth = (int)((dimension.width - (NAME_COL_WIDTH * 2f)) / (table.getStudentCount()));
+        }
+
         g.setColor(Color.BLACK);
         g.setFont(tableFont);
 
@@ -105,119 +112,115 @@ public class TableRenderer implements MouseWheelListener {
 
         final AffineTransform oTrans = g.getTransform();
         g.translate(0, currScroll);
-        for (int r = 0; r <= table.getStudentCount(); r++) {
+        for (int r = 0; r < table.getStudentCount(); r++) {
             drawRow(g, cy, 0, r);
             cy += cellHeight;
         }
         g.setTransform(oTrans);
 
-        drawRow(g, 0, 0, -1);
-    }
-
-    private int getCellWidth(int column, Graphics g) {
-        if(column == 0) {
-            return g.getFontMetrics().stringWidth(Integer.toString(table.getStudentCount())) + 10;
-        }
-
-        if(column == FIRST_NAME_COLUMN || column == LAST_NAME_COLUMN) {
-            return NAME_COL_WIDTH;
-        }
-
-        return (int)((dimension.width - (NAME_COL_WIDTH * 2f)) / (table.getStudentCount() - FIRST_NAME_COLUMN));
+        // Draw header row
+        //drawRow(g, 0, 0, );
     }
 
     private void drawRow(Graphics g, int cy, int cx, int r) {
-        for (int i = 0; i <= table.getLastColumn(); i++) {
-            final String cellVal = table.getValueAt(r, i);
+        final Student student = table.getStudent(r);
 
-            double hours = 0.0;
-            if(cellVal != null && !cellVal.isEmpty()) {
-                try {
-                    hours = Double.parseDouble(cellVal);
-                } catch(NumberFormatException e){}
-            }
+        // Start with the default background
+        Color cellColor = r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE;
+        if(student.getAttendanceRow() == highlightRow) {
+            cellColor = Color.YELLOW;
+        }
 
-            boolean present = cellVal != null && hours > 0;
-            boolean hasValue = cellVal != null && !cellVal.isEmpty();
+        // Draw column headers ( ID, First/ Last Name )
+        drawCell(g, cx, cy, indexColumnWidth, cellHeight, cellColor, Integer.toString(r + 1));
+        cx += indexColumnWidth;
 
-            int cw = getCellWidth(i, g);
-            int ch = cellHeight;
+        drawCell(g, cx, cy, NAME_COL_WIDTH, cellHeight, cellColor, student.getLastName());
+        cx += NAME_COL_WIDTH;
 
-            g.setColor(r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE);
+        drawCell(g, cx, cy, NAME_COL_WIDTH, cellHeight, cellColor, student.getFirstName());
+        cx += NAME_COL_WIDTH;
 
-            if(i == table.getCurrentDateColumn()) {
-                if(Settings.getInstance().getLoginType() == LoginType.IN_OUT && cellVal != null && cellVal.startsWith("in")) {
-                    g.setColor(Color.ORANGE);
-                } else if(present) {
-                    g.setColor(Color.GREEN);
+        boolean foundCurrentDate = false;
+
+        // Draw attendance columns
+        final List<String> attendanceDates = table.getAttendanceDates();
+        for (int i = 0; i < attendanceDates.size(); i++) {
+            String date = attendanceDates.get(i);
+            final boolean isCurrentDateColumn = Objects.equals(date, Settings.getInstance().getDate());
+            cellColor = r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE;
+            if (isCurrentDateColumn) {
+                foundCurrentDate = true;
+                if (student.isSignedIn(date)) {
+                    if (Settings.getInstance().getLoginType() == LoginType.IN_ONLY ||
+                            student.isSignedOut(date)) {
+                        cellColor = Color.GREEN;
+                    } else {
+                        cellColor = Color.ORANGE;
+                    }
                 } else {
-                    g.setColor(CURRENT_DATE_COL);
+                    cellColor = CURRENT_DATE_COL;
                 }
-            } else if(i > 1 && i < table.getCurrentDateColumn() && r > Settings.getInstance().getAttendanceHeaderRow()) {
-                if(!hasValue) {
-                    g.setColor(r % 2 == 0 ? ABSENT_EVEN : ABSENT_ODD);
+            } else if (!foundCurrentDate) {
+                if (student.isSignedIn(date)) {
+                    cellColor = r % 2 == 0 ? PRESENT_EVEN : PRESENT_ODD;
                 } else {
-                    g.setColor(r % 2 == 0 ? PRESENT_EVEN : PRESENT_ODD);
+                    cellColor = r % 2 == 0 ? ABSENT_EVEN : ABSENT_ODD;
                 }
-            }else if(i > table.getCurrentDateColumn() && i < table.getStudentCount() && r > 1) {
+            } else {
                 g.setColor(Color.GRAY);
             }
 
-            if(highlightRow != null && r == highlightRow.getRowNum()) {
-                if(i <= FIRST_NAME_COLUMN) {
-                    g.setColor(Color.YELLOW);
-                } else if(i == table.getCurrentDateColumn()) {
-                    g.fillRect(cx, cy, cw, ch);
+            // Handle Highlighting now.
+            if (student.getAttendanceRow() == highlightRow) {
+                int localMax = highlightTimerMax / 2;
+                if (isCurrentDateColumn) {
+                    int timer = highlightTimerMax - highlightTimer - highlightTimerMax / 4;
+                    if (timer < 0) timer = 0;
+                    if (timer > localMax) timer = localMax;
 
-                    int localMax = highlightTimerMax / 2;
+                    float th = (timer) / (float) localMax * (float) Math.PI * 2f;
+                    float a = (float) (-Math.cos(th) + 1) / 2f;
 
-                    int timer = highlightTimerMax - highlightTimer - highlightTimerMax/4;
-                    if(timer < 0) timer = 0;
-                    if(timer > localMax) timer = localMax;
+                    cellColor = new Color(0f, 1f, 0f, a);
+                } else if (!foundCurrentDate) {
+                    float thruBar = i / attendanceDates.size();
 
-                    float th = (timer)/(float)localMax * (float)Math.PI * 2f;
-                    float a = (float)(-Math.cos(th)+1)/2f;
+                    int timer = highlightTimerMax - highlightTimer - (int) (thruBar * highlightTimerMax / 4);
+                    if (timer < 0) timer = 0;
+                    if (timer > localMax) timer = localMax;
 
-                    g.setColor(new Color(0f, 1f, 0f, a));
-                } else if(i < table.getCurrentDateColumn()) {
-                    g.fillRect(cx, cy, cw, ch);
+                    float th = (timer) / (float) localMax * (float) Math.PI * 2f;
+                    float a = (float) (-Math.cos(th) + 1) / 2f;
 
-                    int localMax = highlightTimerMax / 2;
-
-                    float thruBar = (i-2f) / (table.getCurrentDateColumn()-2f);
-
-                    int timer = highlightTimerMax - highlightTimer - (int)(thruBar*highlightTimerMax/4);
-                    if(timer < 0) timer = 0;
-                    if(timer > localMax) timer = localMax;
-
-                    float th = (timer)/(float)localMax * (float)Math.PI * 2f;
-                    float a = (float)(-Math.cos(th)+1)/2f;
-
-                    g.setColor(new Color(0f, 1f, 0f, a / 2f));
+                    cellColor = new Color(0f, 1f, 0f, a / 2f);
                 }
             }
 
-            g.fillRect(cx, cy, cw, ch);
-            g.setColor(Color.BLACK);
-            g.drawRect(cx, cy, cw, ch);
-
-            if(i > FIRST_NAME_COLUMN && i <= table.getCurrentDateColumn()) {
-                if(r == Settings.getInstance().getAttendanceHeaderRow()) {
-                    g.drawString(cellVal, cx + 4, cy + ch/2 + g.getFont().getSize()/2);
-                } else if(Settings.getInstance().getLoginType() == LoginType.IN_OUT) {
-                    String val = cellVal;
-                    Matcher matcher = inTimePattern.matcher(val);
-                    if(matcher.matches()) {
-                        val = "In " + Integer.parseInt(matcher.group(1))%12 + ":" + matcher.group(2);
-                    }
-
-                    g.drawString(val, cx + 4, cy + ch/2 + g.getFont().getSize()/2);
+            String cellText = null;
+            if (!foundCurrentDate) {
+                if (Settings.getInstance().getLoginType() == LoginType.IN_OUT &&
+                        student.isSignedIn(date) &
+                                !student.isSignedOut(date)) {
+                    cellText = "In: " + DTF.format(student.getSignInTime(date));
                 }
-            } else if (hasValue) {
-                g.drawString(cellVal, cx + 4, cy + ch/2 + g.getFont().getSize()/2);
             }
 
-            cx += cw;
+            drawCell(g, cx, cy, attendanceColumnWidth, cellHeight, cellColor, cellText);
+            cx += attendanceColumnWidth;
+        }
+
+        // Draw column footer (Totals)
+    }
+
+    private void drawCell(Graphics g, int left, int top, int width, int height, Color background, String text) {
+        g.setColor(background);
+        g.fillRect(left, top, width, height);
+        g.setColor(Color.BLACK);
+        g.drawRect(left, top, width, height);
+
+        if(!BarcodeUtils.isNullOrEmpty(text)) {
+            g.drawString(text, left + 4, top + height/2 + g.getFont().getSize()/2);
         }
     }
 
