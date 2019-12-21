@@ -1,21 +1,20 @@
 package com.team871.data;
 
-import com.team871.ui.LoginType;
 import com.team871.ui.StudentTable;
 import com.team871.util.Settings;
 import com.team871.util.ThrowingRunnable;
 import org.apache.poi.ss.usermodel.Row;
 import org.jetbrains.annotations.NotNull;
 
-import java.time.ZonedDateTime;
-import java.time.temporal.TemporalAccessor;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.Map;
 
 public class Student implements Comparable<Student>{
     private final String firstName;
     private final String lastName;
-    private final Map<String, AttendanceItem> attendance = new HashMap<>();
+    private final Map<LocalDate, AttendanceItem> attendance = new HashMap<>();
 
     private String id = null;
     private int grade = -1;
@@ -57,24 +56,28 @@ public class Student implements Comparable<Student>{
 
         // This is actually pretty terrible.
         for(int i = firstDataColumn; i < sheet.getColumnCount(); i++) {
-            final String date = sheet.getHeaderValue(i);
-            if(Settings.isNullOrEmpty(date)) {
+            final String dateString = sheet.getHeaderValue(i);
+            if(Settings.isNullOrEmpty(dateString)) {
                 continue;
             }
-            if("Pre".equals(date)) {
+            if("Pre".equals(dateString)) {
                 break;
             }
 
-            String cellValue = sheet.getValue(row, date);
+            final String[] dateParts = dateString.split("/");
+            if(dateParts.length < 2 ) {
+                continue;
+            }
+            final LocalDate date = LocalDate.of(LocalDate.now().getYear(),
+                    Integer.parseInt(dateParts[0]),
+                    Integer.parseInt(dateParts[1]));
+
+            String cellValue = sheet.getValue(row, dateString);
             if(Settings.isNullOrEmpty(cellValue)) {
                 continue;
             }
 
-            if(Settings.getInstance().getLoginType() == LoginType.IN_OUT) {
-                attendance.put(date, new AttendanceItem(cellValue));
-            } else {
-                attendance.put(date, new AttendanceItem());
-            }
+            attendance.put(date, new AttendanceItem(date));
         }
     }
 
@@ -104,11 +107,11 @@ public class Student implements Comparable<Student>{
         return attendanceRow;
     }
 
-    public boolean isSignedIn(String date) {
+    public boolean isSignedIn(LocalDate date) {
         return attendance.get(date) != null;
     }
 
-    public boolean isSignedOut(String date) {
+    public boolean isSignedOut(LocalDate date) {
         final AttendanceItem item = attendance.get(date);
         if(item == null) {
             return false;
@@ -117,11 +120,11 @@ public class Student implements Comparable<Student>{
         return item.getOutTime() != null;
     }
 
-    public void signIn(String date) {
-        attendance.computeIfAbsent(date, AttendanceItem::new);
+    public void signIn(LocalDate date) {
+        attendance.computeIfAbsent(date, d -> new AttendanceItem(date));
     }
 
-    public void signOut(String date) {
+    public void signOut(LocalDate date) {
         final AttendanceItem item = attendance.get(date);
         if(item == null) {
             return;
@@ -137,12 +140,21 @@ public class Student implements Comparable<Student>{
         this.id = sid;
     }
 
-    public ZonedDateTime getSignInTime(String date) {
+    public LocalTime getSignInTime(LocalDate date) {
         final AttendanceItem item = attendance.get(date);
         if(item == null) {
             return null;
         }
 
-        return item.getInTime();
+        return item.getInTime().toLocalTime();
+    }
+
+    public LocalTime getSignOutTime(LocalDate date) {
+        final AttendanceItem item = attendance.get(date);
+        if(item == null) {
+            return null;
+        }
+
+        return item.getOutTime().toLocalTime();
     }
 }

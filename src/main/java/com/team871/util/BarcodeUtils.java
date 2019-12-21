@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -19,6 +21,8 @@ public class BarcodeUtils {
     private static final String ADMIN_PREFIX = "A871L%4$9Z-";
     private static final Map<String, Barcode> barcodesByCommand = new HashMap<>();
     private static final Map<String, Barcode> barcodesByName = new HashMap<>();
+
+    private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("MM/DD");
 
     static {
         try {
@@ -96,5 +100,10 @@ public class BarcodeUtils {
 
     public static boolean isNullOrEmpty(String val) {
         return val == null || val.isEmpty();
+    }
+
+    public static LocalDate getLocalDate(String date) {
+        final String[] dateParts = date.split("/");
+        return LocalDate.of(LocalDate.now().getYear(), Integer.parseInt(dateParts[0]), Integer.parseInt(dateParts[1]));
     }
 }

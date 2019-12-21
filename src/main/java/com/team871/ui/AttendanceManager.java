@@ -20,6 +20,7 @@ import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
 import java.io.File;
 import java.security.MessageDigest;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -403,7 +404,8 @@ public class AttendanceManager {
             ((JPOSSense) barcodeSensor).dance();
         }
 
-        final String today = Settings.getInstance().getDate();
+        tableRenderer.highlightRow(student.getAttendanceRow());
+        final LocalDate today = Settings.getInstance().getDate();
         if (!student.isSignedIn(today)) {
             student.signIn(today);
             flashTimer = flashTimerMax;
@@ -412,7 +414,6 @@ public class AttendanceManager {
             flashTimer = flashTimerMax;
         }
 
-        tableRenderer.highlightRow(student.getAttendanceRow());
         this.student = student;
     }
 

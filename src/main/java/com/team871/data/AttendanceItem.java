@@ -1,37 +1,35 @@
 package com.team871.data;
 
-import java.time.ZonedDateTime;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 public class AttendanceItem {
-    private static final Pattern IN_OUT_PATTERN = Pattern.compile("In:\\s+(\\S+)(?:\\s+Out:\\s+(\\S+))?");
-
-    private ZonedDateTime inTime = null;
-    private ZonedDateTime outTime = null;
+    private LocalDateTime inTime = null;
+    private LocalDateTime outTime = null;
 
     public AttendanceItem() {
-        inTime = ZonedDateTime.now();
+        inTime = LocalDateTime.now();
     }
 
-    public AttendanceItem(String data) {
-        final Matcher matcher = IN_OUT_PATTERN.matcher(data);
-        if(matcher.matches()) {
-            // TODO: Incomplete
-            String inTime = matcher.group(1);
-            String outTime = matcher.group(2);
-        }
+    public AttendanceItem(LocalDate date) {
+        inTime = date.atTime(LocalTime.now());
     }
 
-    public ZonedDateTime getInTime() {
+    public AttendanceItem(LocalDate date, LocalTime intime, LocalTime outTime) {
+        this.inTime = intime.atDate(date);
+        this.outTime = outTime.atDate(date);
+    }
+
+    public LocalDateTime getInTime() {
         return inTime;
     }
 
-    public ZonedDateTime getOutTime() {
+    public LocalDateTime getOutTime() {
         return outTime;
     }
 
     public void signOut() {
-        outTime = ZonedDateTime.now();
+        outTime = LocalDateTime.now();
     }
 }

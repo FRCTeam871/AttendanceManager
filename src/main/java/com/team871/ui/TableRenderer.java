@@ -10,6 +10,7 @@ import java.awt.*;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.geom.AffineTransform;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
@@ -23,7 +24,8 @@ public class TableRenderer implements MouseWheelListener {
     private static final Color PRESENT_EVEN = new Color(0.3f, 0.65f, 0.3f);
     private static final Color PRESENT_ODD = new Color(0.4f, 1f, 0.4f);
 
-    private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("MM/dd");
 
     private final StudentTable table;
 
@@ -102,7 +104,7 @@ public class TableRenderer implements MouseWheelListener {
         }
 
         if(attendanceColumnWidth <= 0) {
-            attendanceColumnWidth = (int)((dimension.width - (NAME_COL_WIDTH * 2f)) / (table.getStudentCount()));
+            attendanceColumnWidth = (int)((dimension.width - (NAME_COL_WIDTH * 2f) - indexColumnWidth) / table.getAttendanceDates().size());
         }
 
         g.setColor(Color.BLACK);
@@ -119,7 +121,14 @@ public class TableRenderer implements MouseWheelListener {
         g.setTransform(oTrans);
 
         // Draw header row
-        //drawRow(g, 0, 0, );
+        int xPos = 0;
+        drawCell(g, xPos, 0, indexColumnWidth, cellHeight, Color.LIGHT_GRAY, "ID"); xPos += indexColumnWidth;
+        drawCell(g, xPos, 0, NAME_COL_WIDTH, cellHeight, Color.LIGHT_GRAY, "Last"); xPos += NAME_COL_WIDTH;
+        drawCell(g, xPos, 0, NAME_COL_WIDTH, cellHeight, Color.LIGHT_GRAY, "First"); xPos += NAME_COL_WIDTH;
+        for(LocalDate date : table.getAttendanceDates()) {
+            drawCell(g, xPos, 0, attendanceColumnWidth, cellHeight, Color.LIGHT_GRAY, DATE_FORMATTER.format(date));
+            xPos += attendanceColumnWidth;
+        }
     }
 
     private void drawRow(Graphics g, int cy, int cx, int r) {
@@ -144,9 +153,9 @@ public class TableRenderer implements MouseWheelListener {
         boolean foundCurrentDate = false;
 
         // Draw attendance columns
-        final List<String> attendanceDates = table.getAttendanceDates();
+        final List<LocalDate> attendanceDates = table.getAttendanceDates();
         for (int i = 0; i < attendanceDates.size(); i++) {
-            String date = attendanceDates.get(i);
+            final LocalDate date = attendanceDates.get(i);
             final boolean isCurrentDateColumn = Objects.equals(date, Settings.getInstance().getDate());
             cellColor = r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE;
             if (isCurrentDateColumn) {
@@ -198,11 +207,12 @@ public class TableRenderer implements MouseWheelListener {
             }
 
             String cellText = null;
-            if (!foundCurrentDate) {
-                if (Settings.getInstance().getLoginType() == LoginType.IN_OUT &&
-                        student.isSignedIn(date) &
-                                !student.isSignedOut(date)) {
-                    cellText = "In: " + DTF.format(student.getSignInTime(date));
+            if (Settings.getInstance().getLoginType() == LoginType.IN_OUT &&
+                    foundCurrentDate) {
+                if(student.isSignedOut(date)) {
+                    cellText = "Out: " + TIME_FORMATTER.format(student.getSignOutTime(date));
+                } else  if(student.isSignedIn(date)) {
+                    cellText = "In: " + TIME_FORMATTER.format(student.getSignInTime(date));
                 }
             }
 

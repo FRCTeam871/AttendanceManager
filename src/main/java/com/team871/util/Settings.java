@@ -32,8 +32,8 @@ public class Settings {
         props.setProperty("Date", date);
     }
 
-    public String getDate() {
-        return props.getProperty("Date");
+    public LocalDate getDate() {
+        return BarcodeUtils.getLocalDate(props.getProperty("Date"));
     }
 
     public String getJposXmlPath() {

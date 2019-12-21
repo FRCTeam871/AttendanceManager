@@ -2,6 +2,7 @@ package com.team871.ui;
 
 import com.team871.data.Student;
 import com.team871.exception.RobotechException;
+import com.team871.util.BarcodeUtils;
 import com.team871.util.Settings;
 import org.apache.poi.ss.usermodel.*;
 import org.slf4j.Logger;
@@ -12,11 +13,14 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class StudentTable {
     private static final Logger logger = LoggerFactory.getLogger(StudentTable.class);
     private static final DataFormatter FORMATTER = new DataFormatter();
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("MM/dd");
 
     private final Map<String, Map<String, Student>> studentsByName = new TreeMap<>();
     private final Map<String, Student> studentsById = new HashMap<>();
@@ -27,7 +31,7 @@ public class StudentTable {
     private SheetConfig roster;
     private SheetConfig attendance;
 
-    private final List<String> attendanceDates = new ArrayList<>();
+    private final List<LocalDate> attendanceDates = new ArrayList<>();
     private int currentDateColumn = -1;
     private boolean unsaved = false;
 
@@ -161,7 +165,7 @@ public class StudentTable {
                     case "Last":
                         break;
                     default:
-                        attendanceDates.add(headerVal);
+                        attendanceDates.add(BarcodeUtils.getLocalDate(headerVal));
                 }
             }
 
@@ -204,18 +208,6 @@ public class StudentTable {
         return allStudents.size();
     }
 
-    public int getLastColumn() {
-        return roster.getColumnCount();
-    }
-
-    public String getValueAt(int row, int col) {
-        return FORMATTER.formatCellValue(attendance.getRow(row).getCell(col));
-    }
-
-    public int getCurrentDateColumn() {
-        return currentDateColumn;
-    }
-
     public Student getStudentById(String id) {
         return studentsById.get(id);
     }
@@ -254,12 +246,12 @@ public class StudentTable {
         return this.worksheetPath.toFile();
     }
 
-    List<String> getAttendanceDates() {
+    List<LocalDate> getAttendanceDates() {
         return attendanceDates;
     }
 
-    public boolean setDate(String date) {
-        final int maybeDateColumn = getColumnIndexByName(date);
+    public boolean setDate(LocalDate date) {
+        final int maybeDateColumn = getColumnIndexByName(DATE_FORMATTER.format(date));
         if(maybeDateColumn > 0) {
             currentDateColumn = maybeDateColumn;
             return true;
@@ -290,7 +282,7 @@ public class StudentTable {
     }
 
     public void forceSignOut() {
-        final String date = Settings.getInstance().getDate();
+        final LocalDate date = Settings.getInstance().getDate();
         allStudents.stream()
                 .filter(s -> s.isSignedIn(date))
                 .forEach(s -> s.signOut(date));

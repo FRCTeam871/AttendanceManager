@@ -6,13 +6,13 @@ import com.team871.sensing.AbstractBarcodeReader;
 import com.team871.util.BarcodeUtils;
 import com.team871.util.Settings;
 import net.sourceforge.barbecue.Barcode;
-import org.apache.poi.ss.usermodel.Row;
 
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.swing.*;
 import java.awt.*;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.List;
 
@@ -47,7 +47,7 @@ public class SettingsMenu implements TickListener {
             while (true) {
                 res = JOptionPane.showInputDialog(attendanceManager.getCanvas(), (res != null) ? "\"" + res + "\" is not a valid date.\n" : "" + "Enter a new date:");
                 if (res != null) {
-                    if (attendanceManager.table.setDate(res)) {
+                    if (attendanceManager.table.setDate(BarcodeUtils.getLocalDate(res))) {
                         Settings.getInstance().setDate(res);
                         break;
                     }
@@ -82,7 +82,7 @@ public class SettingsMenu implements TickListener {
                 student = students.values().stream().findFirst().get();
             }
 
-            final String date = Settings.getInstance().getDate();
+            final LocalDate date = Settings.getInstance().getDate();
             if (!student.isSignedIn(date)) {
                 student.signIn(date);
                 JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed in.");
