@@ -47,10 +47,11 @@ public class SettingsMenu implements TickListener {
             while (true) {
                 res = JOptionPane.showInputDialog(attendanceManager.getCanvas(), (res != null) ? "\"" + res + "\" is not a valid date.\n" : "" + "Enter a new date:");
                 if (res != null) {
-                    if (attendanceManager.table.setDate(BarcodeUtils.getLocalDate(res))) {
+                    try {
+                        BarcodeUtils.getLocalDate(res);
                         Settings.getInstance().setDate(res);
                         break;
-                    }
+                    } catch(Exception ignored) {}
                 } else {
                     break;
                 }

@@ -111,9 +111,7 @@ public class TableRenderer implements MouseWheelListener {
             indexColumnWidth = g.getFontMetrics().stringWidth(Integer.toString(table.getStudentCount())) + 10;
         }
 
-        if(attendanceColumnWidth <= 0) {
-            attendanceColumnWidth = (int)((dimension.width - (NAME_COL_WIDTH * 2f) - indexColumnWidth) / table.getAttendanceDates().size());
-        }
+        attendanceColumnWidth = (int)((dimension.width - (NAME_COL_WIDTH * 2f) - indexColumnWidth) / table.getAttendanceDates().size());
 
         g.setColor(Color.BLACK);
         g.setFont(tableFont);

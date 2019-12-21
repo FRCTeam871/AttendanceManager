@@ -14,13 +14,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class StudentTable {
     private static final Logger logger = LoggerFactory.getLogger(StudentTable.class);
     private static final DataFormatter FORMATTER = new DataFormatter();
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("MM/dd");
 
     private final Map<String, Map<String, Student>> studentsByName = new TreeMap<>();
     private final Map<String, Student> studentsById = new HashMap<>();
@@ -64,7 +62,6 @@ public class StudentTable {
     private SheetConfig attendance;
 
     private final List<LocalDate> attendanceDates = new ArrayList<>();
-    private int currentDateColumn = -1;
     private boolean unsaved = false;
 
     public Map<String, Student> getStudentsWithLastName(String lastName) {
@@ -142,6 +139,7 @@ public class StudentTable {
     public StudentTable(Path worksheetPath) throws RobotechException {
         this.worksheetPath = worksheetPath;
         loadAttendance();
+        Settings.getInstance().addListener(this::updateDate);
     }
 
     public void addListener(Listener l) {
@@ -199,8 +197,6 @@ public class StudentTable {
             }
             allStudents.sort(Comparator.comparing(Student::getLastName).thenComparing(Student::getFirstName));
 
-            setDate(Settings.getInstance().getDate());
-
             // Then process the attendance
             for(int i = Settings.getInstance().getAttendanceFirstDataColumn(); i < attendance.getColumnCount(); i++) {
                 final String headerVal = attendance.getHeaderValue(i);
@@ -216,6 +212,7 @@ public class StudentTable {
                         attendanceDates.add(BarcodeUtils.getLocalDate(headerVal));
                 }
             }
+            attendanceDates.sort(Comparator.comparing(LocalDate::toEpochDay));
 
             for(int i = 0; i<attendance.getDataRowCount(); i++) {
                 if(!attendance.rowExists(i)) {
@@ -243,6 +240,8 @@ public class StudentTable {
 
                 student.processAttendance(i, attendance);
             }
+
+            updateDate();
         } catch (IOException e) {
             throw new RobotechException("Failed to load attendance file", e);
         }
@@ -298,27 +297,6 @@ public class StudentTable {
         return attendanceDates;
     }
 
-    public boolean setDate(LocalDate date) {
-        final int maybeDateColumn = getColumnIndexByName(DATE_FORMATTER.format(date));
-        if(maybeDateColumn > 0) {
-            currentDateColumn = maybeDateColumn;
-            return true;
-        }
-
-        return false;
-    }
-
-    private int getColumnIndexByName(String value) {
-        for(int i = Settings.getInstance().getAttendanceFirstDataColumn(); i < roster.getColumnCount(); i++) {
-            final String currentValue = attendance.getHeaderValue(i);
-            if(Objects.equals(currentValue, value)) {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
     public boolean areAllSignedOut() {
         if(Settings.getInstance().getLoginType() == LoginType.IN_ONLY) {
             return false;
@@ -334,5 +312,13 @@ public class StudentTable {
         allStudents.stream()
                 .filter(s -> s.isSignedIn(date))
                 .forEach(s -> s.signOut(date));
+    }
+
+    private void updateDate() {
+        final LocalDate date = Settings.getInstance().getDate();
+        if(attendanceDates.stream().noneMatch(d -> d.isEqual(date))) {
+            attendanceDates.add(date);
+            attendanceDates.sort(Comparator.comparing(LocalDate::toEpochDay));
+        }
     }
 }

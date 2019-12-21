@@ -12,6 +12,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 public class Settings {
@@ -19,6 +21,11 @@ public class Settings {
     private static final Settings INSTANCE = new Settings();
 
     private final Properties props;
+    private final List<Listener> listeners = new ArrayList<>();
+
+    public interface Listener {
+        void onDateChanged();
+    }
 
     public static Settings getInstance() {
         return INSTANCE;
@@ -28,8 +35,17 @@ public class Settings {
         props = new Properties();
     }
 
+    public void addListener(Listener l) {
+        listeners.add(l);
+    }
+
+    public void removeListener(Listener l) {
+        listeners.remove(l);
+    }
+
     public void setDate(String date) {
         props.setProperty("Date", date);
+        listeners.forEach(Listener::onDateChanged);
     }
 
     public LocalDate getDate() {
