@@ -404,7 +404,6 @@ public class AttendanceManager {
             ((JPOSSense) barcodeSensor).dance();
         }
 
-        tableRenderer.highlightRow(student.getAttendanceRow());
         final LocalDate today = Settings.getInstance().getDate();
         if (!student.isSignedIn(today)) {
             student.signIn(today);
@@ -433,7 +432,14 @@ public class AttendanceManager {
     }
 
     private void showSaveDialog() {
-        tableRenderer.maybeShowNotSignedOutDialog();
+        if(table.areAllSignedOut()) {
+            return;
+        }
+
+        int result = JOptionPane.showConfirmDialog(null, "There are people that haven't signed out.\nDo you want to sign them out?\n(If not, sign in time will be saved)", "Attendance Manager", JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+        if(result == JOptionPane.YES_OPTION) {
+            table.forceSignOut();
+        }
 
         final JFileChooser chooser = new JFileChooser();
         chooser.setSelectedFile(table.getFile());

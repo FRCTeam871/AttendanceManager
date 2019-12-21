@@ -3,9 +3,7 @@ package com.team871.ui;
 import com.team871.data.Student;
 import com.team871.util.BarcodeUtils;
 import com.team871.util.Settings;
-import org.apache.poi.ss.usermodel.Row;
 
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
@@ -37,7 +35,7 @@ public class TableRenderer implements MouseWheelListener {
     private int indexColumnWidth = 0;
     private int attendanceColumnWidth = 0;
 
-    private Row highlightRow;
+    private Student highlightStudent;
     private int highlightTimer;
     private int highlightTimerMax = 120;
 
@@ -50,11 +48,23 @@ public class TableRenderer implements MouseWheelListener {
     public TableRenderer(StudentTable table) {
         this.table = table;
         tableFont = new Font("Arial", Font.BOLD, 12);
+
+        table.addListener(new StudentTable.Listener() {
+            @Override
+            public void onSignIn(Student student) {
+                highlightStudent(student);
+            }
+
+            @Override
+            public void onSignOut(Student student) {
+                highlightStudent(student);
+            }
+        });
     }
 
     public void tick(int time) {
         if(highlightTimer == 0) {
-            highlightRow = null;
+            highlightStudent = null;
             highlightTimer = -1;
         }
 
@@ -67,8 +77,8 @@ public class TableRenderer implements MouseWheelListener {
             speed = 5f;
             scrollTimer--;
         }else {
-            if (highlightRow != null) {
-                destScroll = -(cellHeight * (highlightRow.getRowNum() - 2));
+            if (highlightStudent != null) {
+                destScroll = -(cellHeight * (highlightStudent.getAttendanceRow().getRowNum() - 2));
                 speed = 10f;
             } else {
                 destScroll = -(int) (((Math.sin(time / (60f * 4)) + 1) / 2f) * maxScroll);
@@ -89,13 +99,6 @@ public class TableRenderer implements MouseWheelListener {
         if(highlightTimer > 0) {
             highlightTimer--;
         }
-    }
-
-    public void highlightRow(Row row) {
-        highlightRow = row;
-        highlightTimer = highlightTimerMax;
-        scrollTimer = 0;
-        scrollAcc = 0;
     }
 
     public void drawTable(Graphics2D g) {
@@ -136,7 +139,7 @@ public class TableRenderer implements MouseWheelListener {
 
         // Start with the default background
         Color cellColor = r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE;
-        if(student.getAttendanceRow() == highlightRow) {
+        if(student == highlightStudent) {
             cellColor = Color.YELLOW;
         }
 
@@ -181,7 +184,7 @@ public class TableRenderer implements MouseWheelListener {
             }
 
             // Handle Highlighting now.
-            if (student.getAttendanceRow() == highlightRow) {
+            if (student == highlightStudent) {
                 int localMax = highlightTimerMax / 2;
                 if (isCurrentDateColumn) {
                     int timer = highlightTimerMax - highlightTimer - highlightTimerMax / 4;
@@ -234,15 +237,11 @@ public class TableRenderer implements MouseWheelListener {
         }
     }
 
-    public void maybeShowNotSignedOutDialog() {
-        if(table.areAllSignedOut()) {
-            return;
-        }
-
-        int result = JOptionPane.showConfirmDialog(null, "There are people that haven't signed out.\nDo you want to sign them out?\n(If not, sign in time will be saved)", "Attendance Manager", JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
-        if(result == JOptionPane.YES_OPTION) {
-            table.forceSignOut();
-        }
+    private void highlightStudent(Student student) {
+        highlightStudent = student;
+        highlightTimer = highlightTimerMax;
+        scrollTimer = 0;
+        scrollAcc = 0;
     }
 
     @Override

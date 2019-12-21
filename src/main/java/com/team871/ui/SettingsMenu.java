@@ -60,26 +60,9 @@ public class SettingsMenu implements TickListener {
 
         actions.put(BarcodeUtils.getBarcodeByName("Sign In/Out by Name"), () -> new Thread(() -> {
             lock = true;
-            Map<String, Student> students;
-            String name = null;
-            do {
-                name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name of the member:");
-                if (name == null) {
-                    return;
-                }
-            } while ((students = attendanceManager.table.getStudentsByLastName(name)).isEmpty());
-
-            Student student;
-            if (students.size() > 1) {
-                String firstName = null;
-                do {
-                    firstName = JOptionPane.showInputDialog((firstName != null ? "That name is not present.\n" : "") + "There are multiple people with that last name!\nEnter the first name of the member:");
-                    if (firstName == null) {
-                        return;
-                    }
-                } while ((student = students.get(firstName)) == null);
-            } else {
-                student = students.values().stream().findFirst().get();
+            final Student student = getStudent();
+            if(student == null) {
+                return;
             }
 
             final LocalDate date = Settings.getInstance().getDate();
@@ -90,15 +73,46 @@ public class SettingsMenu implements TickListener {
                 student.signOut(date);
                 JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed out.");
             }
-            attendanceManager.tableRenderer.highlightRow(student.getAttendanceRow());
+
             lock = false;
         }).start());
 
         actions.put(BarcodeUtils.getBarcodeByName("Toggle Fullscreen"), () -> attendanceManager.setFullscreen(!attendanceManager.isFullscreen()));
 
         actions.put(BarcodeUtils.getBarcodeByName("Correct Name"), () -> new Thread(()-> {
+            final Student student = getStudent();
+            if(student == null) {
+                return;
+            }
+
 
         }).start());
+    }
+
+    private Student getStudent() {
+        Map<String, Student> students;
+        String name = null;
+        do {
+            name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name of the member:");
+            if (name == null) {
+                return null;
+            }
+        } while ((students = attendanceManager.table.getStudentsByLastName(name)).isEmpty());
+
+        Student student;
+        if (students.size() > 1) {
+            String firstName = null;
+            do {
+                firstName = JOptionPane.showInputDialog((firstName != null ? "That name is not present.\n" : "") + "There are multiple people with that last name!\nEnter the first name of the member:");
+                if (firstName == null) {
+                    return null;
+                }
+            } while ((student = students.get(firstName)) == null);
+        } else {
+            student = students.values().stream().findFirst().get();
+        }
+
+        return student;
     }
 
     public void tick(long time) {

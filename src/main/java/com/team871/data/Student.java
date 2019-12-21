@@ -8,13 +8,16 @@ import org.jetbrains.annotations.NotNull;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Student implements Comparable<Student>{
     private final String firstName;
     private final String lastName;
     private final Map<LocalDate, AttendanceItem> attendance = new HashMap<>();
+    private final List<Listener> listeners = new ArrayList<>();
 
     private String id = null;
     private int grade = -1;
@@ -25,9 +28,25 @@ public class Student implements Comparable<Student>{
     private Row rosterRow;
     private Row attendanceRow;
 
+    public interface Listener {
+        void onLogin(Student student);
+        void onLogout(Student student);
+        void onNameChanged();
+        void onIdChanged();
+    }
+
+
     public Student(String firstName, String lastName) {
         this.firstName = firstName;
         this.lastName = lastName;
+    }
+
+    public void addListener(Listener l) {
+        listeners.add(l);
+    }
+
+    public void removeListener(Listener l) {
+        listeners.remove(l);
     }
 
     public String getFirstName() {
@@ -121,7 +140,8 @@ public class Student implements Comparable<Student>{
     }
 
     public void signIn(LocalDate date) {
-        attendance.computeIfAbsent(date, d -> new AttendanceItem(date));
+        final AttendanceItem item = attendance.computeIfAbsent(date, d -> new AttendanceItem(date));
+        listeners.forEach(l -> l.onLogin(this));
     }
 
     public void signOut(LocalDate date) {
@@ -131,6 +151,8 @@ public class Student implements Comparable<Student>{
         }
 
         item.signOut();
+
+        listeners.forEach(l -> l.onLogout(this));
     }
 
     public void setId(String sid) {

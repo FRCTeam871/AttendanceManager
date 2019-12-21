@@ -26,6 +26,28 @@ public class StudentTable {
     private final Map<String, Student> studentsById = new HashMap<>();
     private final Path worksheetPath;
     private final List<Student> allStudents = new ArrayList<>();
+    private final List<Listener> listeners = new ArrayList<>();
+    private final Student.Listener studentListener = new Student.Listener() {
+        @Override
+        public void onLogin(Student student) {
+            listeners.forEach(l -> l.onSignIn(student));
+        }
+
+        @Override
+        public void onLogout(Student student) {
+            listeners.forEach(l -> l.onSignOut(student));
+        }
+
+        @Override
+        public void onNameChanged() {
+
+        }
+
+        @Override
+        public void onIdChanged() {
+
+        }
+    };
 
     private Workbook workbook;
     private SheetConfig roster;
@@ -101,9 +123,22 @@ public class StudentTable {
         }
     }
 
+    public interface Listener {
+        void onSignIn(Student student);
+        void onSignOut(Student student);
+    }
+
     public StudentTable(Path worksheetPath) throws RobotechException {
         this.worksheetPath = worksheetPath;
         loadAttendance();
+    }
+
+    public void addListener(Listener l) {
+        listeners.add(l);
+    }
+
+    public void removeListener(Listener l) {
+        listeners.remove(l);
     }
 
     private void loadAttendance() throws RobotechException {
@@ -148,6 +183,8 @@ public class StudentTable {
                 if(student.getId() != null) {
                     studentsById.put(student.getId(), student);
                 }
+
+                student.addListener(studentListener);
             }
             allStudents.sort(Comparator.comparing(Student::getLastName).thenComparing(Student::getFirstName));
 
