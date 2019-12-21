@@ -48,6 +48,14 @@ public class Student implements Comparable<Student> {
         listeners.remove(l);
     }
 
+    public SafeteyFormState getSafeteyFormState() {
+        return safeteyFormState;
+    }
+
+    public FirstRegistration getRegistration() {
+        return registration;
+    }
+
     public String getFirstName() {
         return firstName;
     }

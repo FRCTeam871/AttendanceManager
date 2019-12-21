@@ -1,5 +1,7 @@
 package com.team871.ui;
 
+import com.team871.data.FirstRegistration;
+import com.team871.data.SafeteyFormState;
 import com.team871.data.Student;
 import com.team871.util.BarcodeUtils;
 import com.team871.util.Settings;
@@ -152,6 +154,9 @@ public class TableRenderer implements MouseWheelListener {
         }
 
         // Draw column headers ( ID, First/ Last Name )
+        drawCell(g, cx, cy, indexColumnWidth/2, cellHeight, getSafetyFormColor(student), null);
+        drawCell(g, cx + (indexColumnWidth/2), cy, indexColumnWidth/2, cellHeight, getRegistrationColor(student), null);
+        cellColor = new Color(0,0,0, 0);
         drawCell(g, cx, cy, indexColumnWidth, cellHeight, cellColor, Integer.toString(r + 1));
         cx += indexColumnWidth;
 
@@ -234,6 +239,34 @@ public class TableRenderer implements MouseWheelListener {
         }
 
         // Draw column footer (Totals)
+    }
+
+    private Color getSafetyFormColor(Student student) {
+        switch (student.getSafeteyFormState()) {
+            case None:
+                return Color.GRAY;
+            case Printed:
+                return Color.CYAN;
+            case Given:
+                return Color.RED;
+            case Signed:
+                return Color.GREEN;
+        }
+
+        return Color.BLACK;
+    }
+
+    private Color getRegistrationColor(Student student) {
+        switch(student.getRegistration()) {
+            case None:
+                return Color.RED;
+            case MissingWaiver:
+                return Color.ORANGE;
+            case Complete:
+                return Color.GREEN;
+        }
+
+        return Color.BLACK;
     }
 
     private void drawCell(Graphics g, int left, int top, int width, int height, Color background, String text) {
