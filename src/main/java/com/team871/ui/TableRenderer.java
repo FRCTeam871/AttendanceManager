@@ -64,6 +64,11 @@ public class TableRenderer implements MouseWheelListener {
             public void nameChanged(Student student) {
                 highlightStudent(student);
             }
+
+            @Override
+            public void onStudentAdded(Student student) {
+                highlightStudent(student);
+            }
         });
     }
 
@@ -81,9 +86,9 @@ public class TableRenderer implements MouseWheelListener {
             scrollAcc = 0;
             speed = 5f;
             scrollTimer--;
-        }else {
+        } else {
             if (highlightStudent != null) {
-                destScroll = -(cellHeight * (highlightStudent.getAttendanceRow().getRowNum() - 2));
+                destScroll = -(cellHeight * (table.getStudentIndex(highlightStudent) - 2));
                 speed = 10f;
             } else {
                 destScroll = -(int) (((Math.sin(time / (60f * 4)) + 1) / 2f) * maxScroll);
@@ -186,6 +191,18 @@ public class TableRenderer implements MouseWheelListener {
                 g.setColor(Color.GRAY);
             }
 
+            String cellText = null;
+            if (Settings.getInstance().getLoginType() == LoginType.IN_OUT &&
+                    foundCurrentDate) {
+                if(student.isSignedOut(date)) {
+                    cellText = "Out: " + TIME_FORMATTER.format(student.getSignOutTime(date));
+                } else  if(student.isSignedIn(date)) {
+                    cellText = "In: " + TIME_FORMATTER.format(student.getSignInTime(date));
+                }
+            }
+
+            drawCell(g, cx, cy, attendanceColumnWidth, cellHeight, cellColor, cellText);
+
             // Handle Highlighting now.
             if (student == highlightStudent) {
                 int localMax = highlightTimerMax / 2;
@@ -198,6 +215,7 @@ public class TableRenderer implements MouseWheelListener {
                     float a = (float) (-Math.cos(th) + 1) / 2f;
 
                     cellColor = new Color(0f, 1f, 0f, a);
+                    drawCell(g, cx, cy, attendanceColumnWidth, cellHeight, cellColor, cellText);
                 } else if (!foundCurrentDate) {
                     float thruBar = (float)i / attendanceDates.size();
 
@@ -209,20 +227,9 @@ public class TableRenderer implements MouseWheelListener {
                     float a = (float) (-Math.cos(th) + 1) / 2f;
 
                     cellColor = new Color(0f, 1f, 0f, a / 2f);
+                    drawCell(g, cx, cy, attendanceColumnWidth, cellHeight, cellColor, cellText);
                 }
             }
-
-            String cellText = null;
-            if (Settings.getInstance().getLoginType() == LoginType.IN_OUT &&
-                    foundCurrentDate) {
-                if(student.isSignedOut(date)) {
-                    cellText = "Out: " + TIME_FORMATTER.format(student.getSignOutTime(date));
-                } else  if(student.isSignedIn(date)) {
-                    cellText = "In: " + TIME_FORMATTER.format(student.getSignInTime(date));
-                }
-            }
-
-            drawCell(g, cx, cy, attendanceColumnWidth, cellHeight, cellColor, cellText);
             cx += attendanceColumnWidth;
         }
 

@@ -47,7 +47,7 @@ public class StudentTable {
             byFirstName = studentsByName.computeIfAbsent(student.getLastName(), n -> new HashMap<>());
             byFirstName.put(student.getFirstName(), student);
 
-            allStudents.sort(Comparator.comparing(Student::getLastName).thenComparing(Student::getFirstName));
+            sortStudents();
             listeners.forEach(l -> l.nameChanged(student));
         }
 
@@ -56,6 +56,10 @@ public class StudentTable {
 
         }
     };
+
+    private void sortStudents() {
+        allStudents.sort(Comparator.comparing(Student::getLastName).thenComparing(Student::getFirstName));
+    }
 
     private Workbook workbook;
     private SheetConfig roster;
@@ -66,6 +70,10 @@ public class StudentTable {
 
     public Map<String, Student> getStudentsWithLastName(String lastName) {
         return studentsByName.getOrDefault(lastName, Collections.emptyMap());
+    }
+
+    public int getStudentIndex(Student highlightStudent) {
+        return allStudents.indexOf(highlightStudent);
     }
 
     public static class SheetConfig {
@@ -134,6 +142,7 @@ public class StudentTable {
         void onSignIn(Student student);
         void onSignOut(Student student);
         void nameChanged(Student student);
+        void onStudentAdded(Student student);
     }
 
     public StudentTable(Path worksheetPath) throws RobotechException {
@@ -195,7 +204,7 @@ public class StudentTable {
 
                 student.addListener(studentListener);
             }
-            allStudents.sort(Comparator.comparing(Student::getLastName).thenComparing(Student::getFirstName));
+            sortStudents();
 
             // Then process the attendance
             for(int i = Settings.getInstance().getAttendanceFirstDataColumn(); i < attendance.getColumnCount(); i++) {
@@ -312,6 +321,21 @@ public class StudentTable {
         allStudents.stream()
                 .filter(s -> s.isSignedIn(date))
                 .forEach(s -> s.signOut(date));
+    }
+
+    public void addStudent(Student student) {
+        final Map<String, Student> byFirstName = studentsByName.computeIfAbsent(student.getLastName(), n -> new HashMap<>());
+        if(byFirstName.containsKey(student.getFirstName())) {
+            throw new IllegalStateException("Name already exists!");
+        }
+
+        student.addListener(studentListener);
+
+        byFirstName.put(student.getFirstName(), student);
+        allStudents.add(student);
+        sortStudents();
+
+        listeners.forEach(l -> l.onStudentAdded(student));
     }
 
     private void updateDate() {

@@ -100,7 +100,32 @@ public class SettingsMenu implements TickListener {
                     break;
                 }
             }
+        }).start());
 
+        actions.put(BarcodeUtils.getBarcodeByName("Add Student"), () -> new Thread(()-> {
+            String res = null;
+            while (true) {
+                res = JOptionPane.showInputDialog(attendanceManager.getCanvas(), (res != null) ? "\"" + res + "\" is not a valid name.\n" : "" + "Enter a new Name:");
+                if (res != null) {
+                    final String[] parts = res.split("\\s+");
+                    if(parts.length != 2) {
+                        continue;
+                    }
+
+                    Map<String, Student> byFirstName = attendanceManager.table.getStudentsByLastName(parts[1]);
+                    if(byFirstName != null) {
+                        if(byFirstName.get(parts[0]) != null) {
+                            break;
+                        }
+                    }
+
+                    final Student student = new Student(parts[0], parts[1]);
+                    attendanceManager.table.addStudent(student);
+                    return;
+                } else {
+                    break;
+                }
+            }
         }).start());
     }
 

@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Student implements Comparable<Student>{
+public class Student implements Comparable<Student> {
     private String firstName;
     private String lastName;
     private final Map<LocalDate, AttendanceItem> attendance = new HashMap<>();
@@ -34,7 +34,6 @@ public class Student implements Comparable<Student>{
         void onNameChanged(Student student, String oldLastName, String oldFirstName);
         void onIdChanged();
     }
-
 
     public Student(String firstName, String lastName) {
         this.firstName = firstName;
@@ -120,10 +119,6 @@ public class Student implements Comparable<Student>{
 
     public String getId() {
         return id;
-    }
-
-    public Row getAttendanceRow() {
-        return attendanceRow;
     }
 
     public boolean isSignedIn(LocalDate date) {

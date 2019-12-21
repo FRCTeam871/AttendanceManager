@@ -31,6 +31,7 @@ public class BarcodeUtils {
             addBarcode("Sign In/Out by Name", "SI");
             addBarcode("Toggle Fullscreen", "FS");
             addBarcode("Correct Name", "CN");
+            addBarcode("Add Student", "AS");
         } catch (BarcodeException ex) {
             log.error("Failed to add barcode:", ex);
         }
