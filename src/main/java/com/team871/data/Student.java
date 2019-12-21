@@ -14,8 +14,8 @@ import java.util.List;
 import java.util.Map;
 
 public class Student implements Comparable<Student>{
-    private final String firstName;
-    private final String lastName;
+    private String firstName;
+    private String lastName;
     private final Map<LocalDate, AttendanceItem> attendance = new HashMap<>();
     private final List<Listener> listeners = new ArrayList<>();
 
@@ -31,7 +31,7 @@ public class Student implements Comparable<Student>{
     public interface Listener {
         void onLogin(Student student);
         void onLogout(Student student);
-        void onNameChanged();
+        void onNameChanged(Student student, String oldLastName, String oldFirstName);
         void onIdChanged();
     }
 
@@ -160,6 +160,15 @@ public class Student implements Comparable<Student>{
             throw new IllegalStateException("ID is already set for " + firstName + " " + lastName);
         }
         this.id = sid;
+    }
+
+    public void setName(String first, String last) {
+        final String oldLast = lastName;
+        final String oldFirst = firstName;
+
+        this.firstName = first;
+        this.lastName = last;
+        listeners.forEach(l -> l.onNameChanged(this, oldLast, oldFirst));
     }
 
     public LocalTime getSignInTime(LocalDate date) {

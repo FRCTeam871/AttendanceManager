@@ -39,8 +39,18 @@ public class StudentTable {
         }
 
         @Override
-        public void onNameChanged() {
+        public void onNameChanged(Student student, String oldLastName, String oldFirstName) {
+            Map<String, Student> byFirstName = studentsByName.get(oldLastName);
+            if(byFirstName == null) {
+                throw new IllegalStateException("Student never existed");
+            }
 
+            byFirstName.remove(oldFirstName);
+            byFirstName = studentsByName.computeIfAbsent(student.getLastName(), n -> new HashMap<>());
+            byFirstName.put(student.getFirstName(), student);
+
+            allStudents.sort(Comparator.comparing(Student::getLastName).thenComparing(Student::getFirstName));
+            listeners.forEach(l -> l.nameChanged(student));
         }
 
         @Override
@@ -126,6 +136,7 @@ public class StudentTable {
     public interface Listener {
         void onSignIn(Student student);
         void onSignOut(Student student);
+        void nameChanged(Student student);
     }
 
     public StudentTable(Path worksheetPath) throws RobotechException {

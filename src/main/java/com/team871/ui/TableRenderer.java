@@ -59,6 +59,11 @@ public class TableRenderer implements MouseWheelListener {
             public void onSignOut(Student student) {
                 highlightStudent(student);
             }
+
+            @Override
+            public void nameChanged(Student student) {
+                highlightStudent(student);
+            }
         });
     }
 
@@ -196,7 +201,7 @@ public class TableRenderer implements MouseWheelListener {
 
                     cellColor = new Color(0f, 1f, 0f, a);
                 } else if (!foundCurrentDate) {
-                    float thruBar = i / attendanceDates.size();
+                    float thruBar = (float)i / attendanceDates.size();
 
                     int timer = highlightTimerMax - highlightTimer - (int) (thruBar * highlightTimerMax / 4);
                     if (timer < 0) timer = 0;

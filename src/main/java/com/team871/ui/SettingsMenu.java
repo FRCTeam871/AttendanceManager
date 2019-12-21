@@ -84,7 +84,21 @@ public class SettingsMenu implements TickListener {
             if(student == null) {
                 return;
             }
+            String res = null;
+            while (true) {
+                res = JOptionPane.showInputDialog(attendanceManager.getCanvas(), (res != null) ? "\"" + res + "\" is not a valid name.\n" : "" + "Enter a new Name:");
+                if (res != null) {
+                    final String[] parts = res.split("\\s+");
+                    if(parts.length != 2) {
+                        continue;
+                    }
 
+                    student.setName(parts[0], parts[1]);
+                    return;
+                } else {
+                    break;
+                }
+            }
 
         }).start());
     }
