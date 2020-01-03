@@ -136,6 +136,20 @@ public class StudentTable {
         public Row getRow(int row) {
             return sheet.getRow(row + headerRow + 1);
         }
+
+        public Cell getCell(int row, String date) {
+            final Integer cellIndex = columnMap.get(date);
+            if(cellIndex == null) {
+                return null;
+            }
+
+            Cell cell = sheet.getRow(row + headerRow + 1).getCell(cellIndex);
+            if(cell == null) {
+                cell = sheet.getRow(row + headerRow + 1).createCell(cellIndex);
+            }
+
+            return cell;
+        }
     }
 
     public interface Listener {

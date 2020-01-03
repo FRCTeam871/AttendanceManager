@@ -3,6 +3,7 @@ package com.team871.data;
 import com.team871.ui.StudentTable;
 import com.team871.util.Settings;
 import com.team871.util.ThrowingRunnable;
+import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.jetbrains.annotations.NotNull;
 
@@ -17,6 +18,7 @@ public class Student implements Comparable<Student> {
     private String firstName;
     private String lastName;
     private final Map<LocalDate, AttendanceItem> attendance = new HashMap<>();
+    private final Map<LocalDate, Cell> dateCellMap = new HashMap<>();
     private final List<Listener> listeners = new ArrayList<>();
 
     private String id = null;
@@ -68,8 +70,10 @@ public class Student implements Comparable<Student> {
         rosterRow = sheet.getRow(row);
         id = sheet.getValue(row, "SID");
 
+/*
         Integer val = sheet.getIntValue(row, "Grade");
         grade = val == null ? -1 : val;
+*/
 
         checkAndTry(sheet.getValue(row, "Safety"), v -> safeteyFormState = SafeteyFormState.valueOf(v));
         checkAndTry(sheet.getValue(row, "First Reg."), v -> registration = FirstRegistration.getByKey(v));
@@ -94,10 +98,12 @@ public class Student implements Comparable<Student> {
             if(dateParts.length < 2 ) {
                 continue;
             }
+
             final LocalDate date = LocalDate.of(LocalDate.now().getYear(),
                     Integer.parseInt(dateParts[0]),
                     Integer.parseInt(dateParts[1]));
 
+            dateCellMap.put(date, sheet.getCell(row, dateString));
             String cellValue = sheet.getValue(row, dateString);
             if(Settings.isNullOrEmpty(cellValue)) {
                 continue;
@@ -144,6 +150,11 @@ public class Student implements Comparable<Student> {
 
     public void signIn(LocalDate date) {
         final AttendanceItem item = attendance.computeIfAbsent(date, d -> new AttendanceItem(date));
+
+        if(attendanceRow != null) {
+            getCellForDate(date).setCellValue("1");
+        }
+
         listeners.forEach(l -> l.onLogin(this));
     }
 
@@ -154,6 +165,9 @@ public class Student implements Comparable<Student> {
         }
 
         item.signOut();
+        if(attendanceRow != null) {
+            getCellForDate(date).setCellValue("2");
+        }
 
         listeners.forEach(l -> l.onLogout(this));
     }
@@ -190,5 +204,9 @@ public class Student implements Comparable<Student> {
         }
 
         return item.getOutTime().toLocalTime();
+    }
+
+    private Cell getCellForDate(LocalDate date) {
+        return dateCellMap.get(date);
     }
 }

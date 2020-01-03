@@ -63,6 +63,7 @@ public class SettingsMenu implements TickListener {
             lock = true;
             final Student student = getStudent();
             if(student == null) {
+                lock = false;
                 return;
             }
 

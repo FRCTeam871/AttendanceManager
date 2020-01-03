@@ -242,28 +242,32 @@ public class TableRenderer implements MouseWheelListener {
     }
 
     private Color getSafetyFormColor(Student student) {
-        switch (student.getSafeteyFormState()) {
-            case None:
-                return Color.GRAY;
-            case Printed:
-                return Color.CYAN;
-            case Given:
-                return Color.RED;
-            case Signed:
-                return Color.GREEN;
+        if(student != null && student.getSafeteyFormState() != null) {
+            switch (student.getSafeteyFormState()) {
+                case None:
+                    return Color.GRAY;
+                case Printed:
+                    return Color.CYAN;
+                case Given:
+                    return Color.RED;
+                case Signed:
+                    return Color.GREEN;
+            }
         }
 
         return Color.BLACK;
     }
 
     private Color getRegistrationColor(Student student) {
-        switch(student.getRegistration()) {
-            case None:
-                return Color.RED;
-            case MissingWaiver:
-                return Color.ORANGE;
-            case Complete:
-                return Color.GREEN;
+        if(student != null && student.getRegistration() != null) {
+            switch (student.getRegistration()) {
+                case None:
+                    return Color.RED;
+                case MissingWaiver:
+                    return Color.ORANGE;
+                case Complete:
+                    return Color.GREEN;
+            }
         }
 
         return Color.BLACK;
