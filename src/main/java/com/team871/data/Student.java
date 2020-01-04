@@ -1,9 +1,8 @@
 package com.team871.data;
 
-import com.team871.ui.StudentTable;
 import com.team871.util.Settings;
 import com.team871.util.ThrowingRunnable;
-import org.apache.poi.ss.usermodel.Row;
+import com.team871.util.Utils;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.LocalDate;
@@ -22,11 +21,14 @@ public class Student implements Comparable<Student> {
     private String id = null;
     private int grade = -1;
     private Subteam subteam = null;
-    private SafeteyFormState safeteyFormState = null;
-    private FirstRegistration registration = null;
+    private SafeteyFormState safeteyFormState = SafeteyFormState.None;
+    private FirstRegistration registration = FirstRegistration.None;
 
-    private Row rosterRow;
-    private Row attendanceRow;
+    private int rosterRow;
+    private int attendanceRow;
+
+    private final SheetConfig rosterSheet;
+    private final SheetConfig attendanceSheet;
 
     public interface Listener {
         void onLogin(Student student);
@@ -35,9 +37,41 @@ public class Student implements Comparable<Student> {
         void onIdChanged();
     }
 
-    public Student(String firstName, String lastName) {
+    public Student(int row, SheetConfig roster, SheetConfig attendanceSheet) {
+        this.rosterRow = row;
+        this.lastName = roster.getValue(row, Utils.LAST_NAME_COL);
+        this.firstName = roster.getValue(row, Utils.FIRST_NAME_COL);
+
+        this.id = roster.getValue(row, "SID");
+
+        Integer val = roster.getIntValue(row, "Grade");
+        this.grade = val == null ? -1 : val;
+
+        checkAndTry(roster.getValue(row, "Safety"), v -> safeteyFormState = SafeteyFormState.valueOf(v));
+        checkAndTry(roster.getValue(row, "First Reg."), v -> registration = FirstRegistration.getByKey(v));
+        checkAndTry(roster.getValue(row, "Team"), v -> subteam = Subteam.valueOf(v));
+        rosterSheet = roster;
+        this.attendanceSheet = attendanceSheet;
+    }
+
+    public Student(String firstName, String lastName, SheetConfig rosterSheet, SheetConfig attendanceSheet) {
         this.firstName = firstName;
         this.lastName = lastName;
+
+        // Do something smart
+        this.rosterSheet = rosterSheet;
+        this.attendanceSheet = attendanceSheet;
+
+        rosterRow = rosterSheet.addRow();
+        attendanceRow = attendanceSheet.addRow();
+
+        rosterSheet.setCell(rosterRow, Utils.LAST_NAME_COL, true, lastName);
+        rosterSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, true, firstName);
+        rosterSheet.setCell(rosterRow, Utils.SAFETY_COL, true, SafeteyFormState.None.name());
+        rosterSheet.setCell(rosterRow, Utils.FIRST_REG_COL, true, FirstRegistration.None.getKey());
+
+        attendanceSheet.setCell(rosterRow, Utils.LAST_NAME_COL, true, lastName);
+        attendanceSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, true, firstName);
     }
 
     public void addListener(Listener l) {
@@ -64,29 +98,17 @@ public class Student implements Comparable<Student> {
         return lastName;
     }
 
-    public void populateFromRow(int row, @NotNull StudentTable.SheetConfig sheet) {
-        rosterRow = sheet.getRow(row);
-        id = sheet.getValue(row, "SID");
-
-        Integer val = sheet.getIntValue(row, "Grade");
-        grade = val == null ? -1 : val;
-
-        checkAndTry(sheet.getValue(row, "Safety"), v -> safeteyFormState = SafeteyFormState.valueOf(v));
-        checkAndTry(sheet.getValue(row, "First Reg."), v -> registration = FirstRegistration.getByKey(v));
-        checkAndTry(sheet.getValue(row, "Team"), v -> subteam = Subteam.valueOf(v));
-    }
-
-    public void processAttendance(int row, @NotNull StudentTable.SheetConfig sheet) {
-        attendanceRow = sheet.getRow(row);
+    public void processAttendance(int row) {
+        attendanceRow = row;
         final int firstDataColumn = Settings.getInstance().getAttendanceFirstDataColumn();
 
         // This is actually pretty terrible.
-        for(int i = firstDataColumn; i < sheet.getColumnCount(); i++) {
-            final String dateString = sheet.getHeaderValue(i);
+        for(int i = firstDataColumn; i < attendanceSheet.getColumnCount(); i++) {
+            final String dateString = attendanceSheet.getHeaderValue(i);
             if(Settings.isNullOrEmpty(dateString)) {
                 continue;
             }
-            if("Pre".equals(dateString)) {
+            if(Utils.TOTAL_COL.equals(dateString)) {
                 break;
             }
 
@@ -98,7 +120,7 @@ public class Student implements Comparable<Student> {
                     Integer.parseInt(dateParts[0]),
                     Integer.parseInt(dateParts[1]));
 
-            String cellValue = sheet.getValue(row, dateString);
+            String cellValue = attendanceSheet.getValue(row, dateString);
             if(Settings.isNullOrEmpty(cellValue)) {
                 continue;
             }
@@ -144,6 +166,8 @@ public class Student implements Comparable<Student> {
 
     public void signIn(LocalDate date) {
         final AttendanceItem item = attendance.computeIfAbsent(date, d -> new AttendanceItem(date));
+
+        updateAttendanceCell(date, item);
         listeners.forEach(l -> l.onLogin(this));
     }
 
@@ -154,7 +178,7 @@ public class Student implements Comparable<Student> {
         }
 
         item.signOut();
-
+        updateAttendanceCell(date, item);
         listeners.forEach(l -> l.onLogout(this));
     }
 
@@ -171,6 +195,11 @@ public class Student implements Comparable<Student> {
 
         this.firstName = first;
         this.lastName = last;
+
+        rosterSheet.setCell(rosterRow, Utils.LAST_NAME_COL, true, last);
+        rosterSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, true, first);
+        attendanceSheet.setCell(rosterRow, Utils.LAST_NAME_COL, true, last);
+        attendanceSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, true, first);
         listeners.forEach(l -> l.onNameChanged(this, oldLast, oldFirst));
     }
 
@@ -190,5 +219,11 @@ public class Student implements Comparable<Student> {
         }
 
         return item.getOutTime().toLocalTime();
+    }
+
+    private void updateAttendanceCell(LocalDate date, AttendanceItem item) {
+        attendanceSheet.setCell(attendanceRow, Utils.DATE_FORMATTER.format(date), true, "(" +
+                Utils.TIME_FORMATTER.format(item.getInTime()) + "," +
+                (item.getOutTime() == null ? "" : Utils.TIME_FORMATTER.format(item.getOutTime())) + ")");
     }
 }

@@ -1,9 +1,10 @@
 package com.team871.ui;
 
+import com.team871.data.SheetConfig;
 import com.team871.data.Student;
 import com.team871.exception.RobotechException;
-import com.team871.util.BarcodeUtils;
 import com.team871.util.Settings;
+import com.team871.util.Utils;
 import org.apache.poi.ss.usermodel.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +19,6 @@ import java.util.*;
 
 public class StudentTable {
     private static final Logger logger = LoggerFactory.getLogger(StudentTable.class);
-    private static final DataFormatter FORMATTER = new DataFormatter();
 
     private final Map<String, Map<String, Student>> studentsByName = new TreeMap<>();
     private final Map<String, Student> studentsById = new HashMap<>();
@@ -68,76 +68,6 @@ public class StudentTable {
     private final List<LocalDate> attendanceDates = new ArrayList<>();
     private boolean unsaved = false;
 
-    public Map<String, Student> getStudentsWithLastName(String lastName) {
-        return studentsByName.getOrDefault(lastName, Collections.emptyMap());
-    }
-
-    public int getStudentIndex(Student highlightStudent) {
-        return allStudents.indexOf(highlightStudent);
-    }
-
-    public static class SheetConfig {
-        private final Sheet sheet;
-        private final int headerRow;
-        private final int columnCount;
-        private final Map<String, Integer> columnMap;
-
-        SheetConfig(Sheet sheet, int headerRow) {
-            this.sheet = sheet;
-            this.headerRow = headerRow;
-            columnMap = new LinkedHashMap<>();
-
-            final Row header = sheet.getRow(headerRow);
-            columnCount = header.getLastCellNum();
-            for(int i = 0; i < header.getLastCellNum(); i++) {
-                final Cell cell = header.getCell(i);
-                if(cell == null || cell.getCellType() == CellType.FORMULA) {
-                    continue;
-                }
-
-                columnMap.put(FORMATTER.formatCellValue(cell), i);
-            }
-        }
-
-        public String getValue(int row, String column) {
-            final Integer cellIndex = columnMap.get(column);
-            if(cellIndex == null) {
-                return null;
-            }
-
-            return FORMATTER.formatCellValue(sheet.getRow(row + headerRow + 1).getCell(cellIndex));
-        }
-
-        public Integer getIntValue(int row, String column) {
-            final Integer cellIndex = columnMap.get(column);
-            if(cellIndex == null) {
-                return null;
-            }
-
-            return (int)sheet.getRow(row + headerRow + 1).getCell(cellIndex).getNumericCellValue();
-        }
-
-        public String getHeaderValue(int cell) {
-            return sheet.getRow(headerRow).getCell(cell).getStringCellValue();
-        }
-
-        public int getDataRowCount() {
-            return sheet.getLastRowNum() - headerRow;
-        }
-
-        public int getColumnCount() {
-            return columnCount;
-        }
-
-        public boolean rowExists(int row) {
-            return sheet.getRow(row + headerRow + 1) != null;
-        }
-
-        public Row getRow(int row) {
-            return sheet.getRow(row + headerRow + 1);
-        }
-    }
-
     public interface Listener {
         void onSignIn(Student student);
         void onSignOut(Student student);
@@ -149,6 +79,30 @@ public class StudentTable {
         this.worksheetPath = worksheetPath;
         loadAttendance();
         Settings.getInstance().addListener(this::updateDate);
+    }
+
+    public Map<String, Student> getStudentsWithLastName(String lastName) {
+        return studentsByName.getOrDefault(lastName, Collections.emptyMap());
+    }
+
+    public int getStudentIndex(Student highlightStudent) {
+        return allStudents.indexOf(highlightStudent);
+    }
+
+    public void createStudent(String first, String last) {
+        final Map<String, Student> byFirstName = studentsByName.computeIfAbsent(last, n -> new HashMap<>());
+        if(byFirstName.containsKey(first)) {
+            throw new IllegalStateException("Name already exists!");
+        }
+
+        final Student student = new Student(first, last, roster, attendance);
+        student.addListener(studentListener);
+
+        byFirstName.put(student.getFirstName(), student);
+        allStudents.add(student);
+        sortStudents();
+
+        listeners.forEach(l -> l.onStudentAdded(student));
     }
 
     public void addListener(Listener l) {
@@ -183,8 +137,8 @@ public class StudentTable {
                     continue;
                 }
 
-                final String lastName = roster.getValue(i, "Last");
-                final String firstName = roster.getValue(i, "First");
+                final String lastName = roster.getValue(i, Utils.LAST_NAME_COL);
+                final String firstName = roster.getValue(i, Utils.FIRST_NAME_COL);
 
                 final Map<String, Student> byFirstName = studentsByName.computeIfAbsent(lastName, k -> new TreeMap<>());
                 if(byFirstName.containsKey(firstName)) {
@@ -192,8 +146,7 @@ public class StudentTable {
                     continue;
                 }
 
-                final Student student = new Student(firstName, lastName);
-                student.populateFromRow(i, roster);
+                final Student student = new Student(i, roster, attendance);
                 byFirstName.put(firstName, student);
                 allStudents.add(student);
 
@@ -213,12 +166,12 @@ public class StudentTable {
                     break;
                 }
                 switch(headerVal) {
-                    case "ID":
-                    case "First":
-                    case "Last":
+                    case Utils.ID_COL:
+                    case Utils.FIRST_NAME_COL:
+                    case Utils.LAST_NAME_COL:
                         break;
                     default:
-                        attendanceDates.add(BarcodeUtils.getLocalDate(headerVal));
+                        attendanceDates.add(Utils.getLocalDate(headerVal));
                 }
             }
             attendanceDates.sort(Comparator.comparing(LocalDate::toEpochDay));
@@ -228,12 +181,12 @@ public class StudentTable {
                     continue;
                 }
 
-                final String lastName = attendance.getValue(i, "Last");
+                final String lastName = attendance.getValue(i, Utils.LAST_NAME_COL);
                 if("#".equals(lastName)) {
                     break;
                 }
 
-                final String firstName = attendance.getValue(i, "First");
+                final String firstName = attendance.getValue(i, Utils.FIRST_NAME_COL);
 
                 final Map<String, Student> byFirstName = studentsByName.get(lastName);
                 if(byFirstName == null || byFirstName.isEmpty()) {
@@ -247,7 +200,7 @@ public class StudentTable {
                     continue;
                 }
 
-                student.processAttendance(i, attendance);
+                student.processAttendance(i);
             }
 
             updateDate();
@@ -321,21 +274,6 @@ public class StudentTable {
         allStudents.stream()
                 .filter(s -> s.isSignedIn(date))
                 .forEach(s -> s.signOut(date));
-    }
-
-    public void addStudent(Student student) {
-        final Map<String, Student> byFirstName = studentsByName.computeIfAbsent(student.getLastName(), n -> new HashMap<>());
-        if(byFirstName.containsKey(student.getFirstName())) {
-            throw new IllegalStateException("Name already exists!");
-        }
-
-        student.addListener(studentListener);
-
-        byFirstName.put(student.getFirstName(), student);
-        allStudents.add(student);
-        sortStudents();
-
-        listeners.forEach(l -> l.onStudentAdded(student));
     }
 
     private void updateDate() {

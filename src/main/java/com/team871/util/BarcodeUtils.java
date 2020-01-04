@@ -9,11 +9,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
-import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Predicate;
 
 public class BarcodeUtils {
     private static final Logger log = LoggerFactory.getLogger(BarcodeUtils.class);
@@ -75,12 +73,12 @@ public class BarcodeUtils {
 
     public static boolean isSettingsCommand(@NotNull BarcodeResult br) {
         final String text = br.getText();
-        return !isNullOrEmpty(text) && text.startsWith(SETTINGS_CODE_PREFIX);
+        return !Utils.isNullOrEmpty(text) && text.startsWith(SETTINGS_CODE_PREFIX);
     }
 
     public static boolean isAdminCommand(@NotNull BarcodeResult result) {
         final String text = result.getText();
-        return !isNullOrEmpty(text) && text.startsWith(ADMIN_PREFIX);
+        return !Utils.isNullOrEmpty(text) && text.startsWith(ADMIN_PREFIX);
     }
 
     public static String getSettingsCommand(BarcodeResult br) {
@@ -92,19 +90,10 @@ public class BarcodeUtils {
     }
 
     private static String getSuffix(String text, @NotNull String prefix) {
-        if (isNullOrEmpty(text) || !text.startsWith(prefix)) {
+        if (Utils.isNullOrEmpty(text) || !text.startsWith(prefix)) {
             return null;
         }
 
         return text.substring(prefix.length());
-    }
-
-    public static boolean isNullOrEmpty(String val) {
-        return val == null || val.isEmpty();
-    }
-
-    public static LocalDate getLocalDate(String date) {
-        final String[] dateParts = date.split("/");
-        return LocalDate.of(LocalDate.now().getYear(), Integer.parseInt(dateParts[0]), Integer.parseInt(dateParts[1]));
     }
 }

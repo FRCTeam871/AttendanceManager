@@ -11,6 +11,10 @@ public enum FirstRegistration {
         this.key = key;
     }
 
+    public String getKey() {
+        return key;
+    }
+
     public static FirstRegistration getByKey(String key) {
         for(FirstRegistration r : values()) {
             if(r.key.equals(key)) {

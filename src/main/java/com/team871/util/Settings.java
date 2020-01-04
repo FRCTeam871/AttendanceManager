@@ -49,7 +49,7 @@ public class Settings {
     }
 
     public LocalDate getDate() {
-        return BarcodeUtils.getLocalDate(props.getProperty("Date"));
+        return Utils.getLocalDate(props.getProperty("Date"));
     }
 
     public String getJposXmlPath() {

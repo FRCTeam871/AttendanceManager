@@ -3,15 +3,14 @@ package com.team871.ui;
 import com.team871.data.FirstRegistration;
 import com.team871.data.SafeteyFormState;
 import com.team871.data.Student;
-import com.team871.util.BarcodeUtils;
 import com.team871.util.Settings;
+import com.team871.util.Utils;
 
 import java.awt.*;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.geom.AffineTransform;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
 
@@ -23,9 +22,6 @@ public class TableRenderer implements MouseWheelListener {
     private static final Color ABSENT_ODD =  new Color(1f, 0.4f, 0.4f);
     private static final Color PRESENT_EVEN = new Color(0.3f, 0.65f, 0.3f);
     private static final Color PRESENT_ODD = new Color(0.4f, 1f, 0.4f);
-
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("MM/dd");
 
     private final StudentTable table;
 
@@ -135,11 +131,11 @@ public class TableRenderer implements MouseWheelListener {
 
         // Draw header row
         int xPos = 0;
-        drawCell(g, xPos, 0, indexColumnWidth, cellHeight, Color.LIGHT_GRAY, "ID"); xPos += indexColumnWidth;
-        drawCell(g, xPos, 0, NAME_COL_WIDTH, cellHeight, Color.LIGHT_GRAY, "Last"); xPos += NAME_COL_WIDTH;
-        drawCell(g, xPos, 0, NAME_COL_WIDTH, cellHeight, Color.LIGHT_GRAY, "First"); xPos += NAME_COL_WIDTH;
+        drawCell(g, xPos, 0, indexColumnWidth, cellHeight, Color.LIGHT_GRAY, Utils.ID_COL); xPos += indexColumnWidth;
+        drawCell(g, xPos, 0, NAME_COL_WIDTH, cellHeight, Color.LIGHT_GRAY, Utils.LAST_NAME_COL); xPos += NAME_COL_WIDTH;
+        drawCell(g, xPos, 0, NAME_COL_WIDTH, cellHeight, Color.LIGHT_GRAY, Utils.FIRST_NAME_COL); xPos += NAME_COL_WIDTH;
         for(LocalDate date : table.getAttendanceDates()) {
-            drawCell(g, xPos, 0, attendanceColumnWidth, cellHeight, Color.LIGHT_GRAY, DATE_FORMATTER.format(date));
+            drawCell(g, xPos, 0, attendanceColumnWidth, cellHeight, Color.LIGHT_GRAY, Utils.DATE_FORMATTER.format(date));
             xPos += attendanceColumnWidth;
         }
     }
@@ -148,10 +144,7 @@ public class TableRenderer implements MouseWheelListener {
         final Student student = table.getStudent(r);
 
         // Start with the default background
-        Color cellColor = r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE;
-        if(student == highlightStudent) {
-            cellColor = Color.YELLOW;
-        }
+        Color cellColor;
 
         // Draw column headers ( ID, First/ Last Name )
         drawCell(g, cx, cy, indexColumnWidth/2, cellHeight, getSafetyFormColor(student), null);
@@ -200,9 +193,9 @@ public class TableRenderer implements MouseWheelListener {
             if (Settings.getInstance().getLoginType() == LoginType.IN_OUT &&
                     foundCurrentDate) {
                 if(student.isSignedOut(date)) {
-                    cellText = "Out: " + TIME_FORMATTER.format(student.getSignOutTime(date));
+                    cellText = "Out: " + Utils.TIME_FORMATTER.format(student.getSignOutTime(date));
                 } else  if(student.isSignedIn(date)) {
-                    cellText = "In: " + TIME_FORMATTER.format(student.getSignInTime(date));
+                    cellText = "In: " + Utils.TIME_FORMATTER.format(student.getSignInTime(date));
                 }
             }
 
@@ -242,7 +235,13 @@ public class TableRenderer implements MouseWheelListener {
     }
 
     private Color getSafetyFormColor(Student student) {
-        switch (student.getSafeteyFormState()) {
+        final SafeteyFormState state = student.getSafeteyFormState();
+        if(state == null) {
+            return Color.GRAY;
+        }
+
+        switch (state) {
+            default:
             case None:
                 return Color.GRAY;
             case Printed:
@@ -252,12 +251,17 @@ public class TableRenderer implements MouseWheelListener {
             case Signed:
                 return Color.GREEN;
         }
-
-        return Color.BLACK;
     }
 
     private Color getRegistrationColor(Student student) {
-        switch(student.getRegistration()) {
+        final FirstRegistration registration = student.getRegistration();
+        if(registration == null) {
+            return Color.GRAY;
+        }
+
+        switch(registration) {
+            default:
+                return Color.GRAY;
             case None:
                 return Color.RED;
             case MissingWaiver:
@@ -265,8 +269,6 @@ public class TableRenderer implements MouseWheelListener {
             case Complete:
                 return Color.GREEN;
         }
-
-        return Color.BLACK;
     }
 
     private void drawCell(Graphics g, int left, int top, int width, int height, Color background, String text) {
@@ -275,7 +277,7 @@ public class TableRenderer implements MouseWheelListener {
         g.setColor(Color.BLACK);
         g.drawRect(left, top, width, height);
 
-        if(!BarcodeUtils.isNullOrEmpty(text)) {
+        if(!Utils.isNullOrEmpty(text)) {
             g.drawString(text, left + 4, top + height/2 + g.getFont().getSize()/2);
         }
     }
