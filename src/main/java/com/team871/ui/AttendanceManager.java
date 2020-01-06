@@ -140,6 +140,8 @@ public class AttendanceManager {
                     currentState = currentState == State.Settings ? State.Normal : State.Settings;
                 } else if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown() && e.isAltDown()) {
                     playYeaTim();
+                } else if(e.getKeyCode() == KeyEvent.VK_L) {
+                    settings.doManualLogin();
                 }
             }
         });

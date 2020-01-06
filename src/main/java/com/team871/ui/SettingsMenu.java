@@ -60,25 +60,7 @@ public class SettingsMenu implements TickListener {
             lock = false;
         }).start());
 
-        actions.put(BarcodeUtils.getBarcodeByName("Sign In/Out by Name"), () -> new Thread(() -> {
-            lock = true;
-            final Student student = getStudent();
-            if(student == null) {
-                lock = false;
-                return;
-            }
-
-            final LocalDate date = Settings.getInstance().getDate();
-            if (!student.isSignedIn(date)) {
-                student.signIn(date);
-                JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed in.");
-            } else {
-                student.signOut(date);
-                JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed out.");
-            }
-
-            lock = false;
-        }).start());
+        actions.put(BarcodeUtils.getBarcodeByName("Sign In/Out by Name"), () -> doManualLogin());
 
         actions.put(BarcodeUtils.getBarcodeByName("Toggle Fullscreen"), () -> attendanceManager.setFullscreen(!attendanceManager.isFullscreen()));
 
@@ -128,6 +110,28 @@ public class SettingsMenu implements TickListener {
                 }
             }
         }).start());
+    }
+
+    public void doManualLogin() {
+        new Thread(() -> {
+            lock = true;
+            final Student student = getStudent();
+            if(student == null) {
+                lock = false;
+                return;
+            }
+
+            final LocalDate date = Settings.getInstance().getDate();
+            if (!student.isSignedIn(date)) {
+                student.signIn(date);
+                JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed in.");
+            } else {
+                student.signOut(date);
+                JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed out.");
+            }
+
+            lock = false;
+        }).start();
     }
 
     private Student getStudent() {
