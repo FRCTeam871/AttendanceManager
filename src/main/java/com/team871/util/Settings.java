@@ -60,16 +60,16 @@ public class Settings {
         return Paths.get(props.getProperty("worksheet"));
     }
 
+    public boolean getFun() {
+        return Boolean.getBoolean(props.getProperty("fun"));
+    }
+
     public LoginType getLoginType(){
         return LoginType.valueOf(props.getProperty("loginType"));
     }
 
     public String getAttendanceSheet() {
         return props.getProperty("attendanceSheet");
-    }
-
-    public boolean getFun() {
-        return Boolean.getBoolean(props.getProperty("fun"));
     }
 
     public String getRosterSheet() {
@@ -90,6 +90,30 @@ public class Settings {
 
     public int getAttendanceFirstDataRow() {
         return Integer.parseInt(props.getProperty("attendance.firstRow"));
+    }
+
+    public String getMentorAttendanceSheet() {
+        return props.getProperty("mentorSheet");
+    }
+
+    public String getMentorRosterSheet() {
+        return props.getProperty("mentorRSheet");
+    }
+
+    public int getMentorRosterHeaderRow() {
+        return Integer.parseInt(props.getProperty("mentorRos.headerRow"));
+    }
+
+    public int getMentorRosterFirstDataRow() {
+        return Integer.parseInt(props.getProperty("mentorRos.firstRow"));
+    }
+
+    public int getMentorAttendanceHeaderRow() {
+        return Integer.parseInt(props.getProperty("mentorAtt.headerRow"));
+    }
+
+    public int getMentorAttendanceFirstDataRow() {
+        return Integer.parseInt(props.getProperty("mentorAtt.firstRow"));
     }
 
     public void init(String prefsFile) throws RobotechException {

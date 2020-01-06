@@ -60,7 +60,7 @@ public class SettingsMenu implements TickListener {
             lock = false;
         }).start());
 
-        actions.put(BarcodeUtils.getBarcodeByName("Sign In/Out by Name"), () -> doManualLogin());
+        actions.put(BarcodeUtils.getBarcodeByName("Sign In/Out by Name"), this::doManualLogin);
 
         actions.put(BarcodeUtils.getBarcodeByName("Toggle Fullscreen"), () -> attendanceManager.setFullscreen(!attendanceManager.isFullscreen()));
 
@@ -96,14 +96,14 @@ public class SettingsMenu implements TickListener {
                         continue;
                     }
 
-                    Map<String, Student> byFirstName = attendanceManager.table.getStudentsByLastName(parts[1]);
+                    Map<String, Student> byFirstName = attendanceManager.getStudentsByLastName(parts[1]);
                     if(byFirstName != null) {
                         if(byFirstName.get(parts[0]) != null) {
                             break;
                         }
                     }
 
-                    attendanceManager.table.createStudent(parts[0], parts[1]);
+                    attendanceManager.createStudent(parts[0], parts[1]);
                     return;
                 } else {
                     break;
@@ -142,7 +142,7 @@ public class SettingsMenu implements TickListener {
             if (name == null) {
                 return null;
             }
-        } while ((students = attendanceManager.table.getStudentsByLastName(name)).isEmpty());
+        } while ((students = attendanceManager.getStudentsByLastName(name)).isEmpty());
 
         Student student;
         if (students.size() > 1) {

@@ -5,15 +5,11 @@ import com.team871.data.Student;
 import com.team871.exception.RobotechException;
 import com.team871.util.Settings;
 import com.team871.util.Utils;
-import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -22,7 +18,6 @@ public class StudentTable {
 
     private final Map<String, Map<String, Student>> studentsByName = new TreeMap<>();
     private final Map<String, Student> studentsById = new HashMap<>();
-    private final Path worksheetPath;
     private final List<Student> allStudents = new ArrayList<>();
     private final List<Listener> listeners = new ArrayList<>();
     private final Student.Listener studentListener = new Student.Listener() {
@@ -64,6 +59,12 @@ public class StudentTable {
     private Workbook workbook;
     private SheetConfig roster;
     private SheetConfig attendance;
+    private final String rosterSheetName;
+    private final String attendanceSheetName;
+    private final int attHeaderRow;
+    private final int rosterHeaderRow;
+    private final int attFirstRow;
+    private final int rosterFirstRow;
 
     private final List<LocalDate> attendanceDates = new ArrayList<>();
     private boolean unsaved = false;
@@ -75,8 +76,17 @@ public class StudentTable {
         void onStudentAdded(Student student);
     }
 
-    public StudentTable(Path worksheetPath) throws RobotechException {
-        this.worksheetPath = worksheetPath;
+    public StudentTable(Workbook workbook, String rosterSheet, String attendanceSheet,
+                        int attHeaderRow, int rosterHeaderRow,
+                        int attFirstRow, int rosterFirstRow) throws RobotechException {
+        this.workbook = workbook;
+        this.rosterSheetName = rosterSheet;
+        this.attendanceSheetName = attendanceSheet;
+        this.attHeaderRow = attHeaderRow;
+        this.rosterHeaderRow = rosterHeaderRow;
+        this.attFirstRow = attFirstRow;
+        this.rosterFirstRow = rosterFirstRow;
+
         loadAttendance();
         Settings.getInstance().addListener(this::updateDate);
     }
@@ -114,99 +124,93 @@ public class StudentTable {
     }
 
     private void loadAttendance() throws RobotechException {
-        logger.info("Loading attendance sheet from " + worksheetPath);
-        try(final FileInputStream stream = new FileInputStream(worksheetPath.toFile())) {
-            workbook = WorkbookFactory.create(stream);
-
-            final Sheet attendanceSheet = workbook.getSheet(Settings.getInstance().getAttendanceSheet());
-            if(attendanceSheet == null) {
-                throw new RuntimeException("Attendance worksheet " + Settings.getInstance().getAttendanceSheet() + " does not exist");
-            }
-            attendance = new SheetConfig(attendanceSheet, Settings.getInstance().getAttendanceHeaderRow());
-
-            final Sheet rosterSheet = workbook.getSheet(Settings.getInstance().getRosterSheet());
-            if(rosterSheet == null) {
-                throw new RuntimeException("Roster worksheet " + Settings.getInstance().getRosterSheet() + " does not exist");
-            }
-            roster = new SheetConfig(rosterSheet, Settings.getInstance().getRosterHeaderRow());
-
-            // Now process the sheets into a set of students and their attendances.
-            // Start with the roster
-            for(int i = 0; i < roster.getDataRowCount(); i++) {
-                if(!roster.rowExists(i)) {
-                    continue;
-                }
-
-                final String lastName = roster.getValue(i, Utils.LAST_NAME_COL);
-                final String firstName = roster.getValue(i, Utils.FIRST_NAME_COL);
-
-                final Map<String, Student> byFirstName = studentsByName.computeIfAbsent(lastName, k -> new TreeMap<>());
-                if(byFirstName.containsKey(firstName)) {
-                    logger.error("Duplicate name! " + firstName + " " + lastName);
-                    continue;
-                }
-
-                final Student student = new Student(i, roster, attendance);
-                byFirstName.put(firstName, student);
-                allStudents.add(student);
-
-                // If an ID existed, add to the mapping
-                if(student.getId() != null) {
-                    studentsById.put(student.getId(), student);
-                }
-
-                student.addListener(studentListener);
-            }
-            sortStudents();
-
-            // Then process the attendance
-            for(int i = Settings.getInstance().getAttendanceFirstDataColumn(); i < attendance.getColumnCount(); i++) {
-                final String headerVal = attendance.getHeaderValue(i);
-                if("Pre".equals(headerVal)) {
-                    break;
-                }
-                switch(headerVal) {
-                    case Utils.ID_COL:
-                    case Utils.FIRST_NAME_COL:
-                    case Utils.LAST_NAME_COL:
-                        break;
-                    default:
-                        attendanceDates.add(Utils.getLocalDate(headerVal));
-                }
-            }
-            attendanceDates.sort(Comparator.comparing(LocalDate::toEpochDay));
-
-            for(int i = 0; i<attendance.getDataRowCount(); i++) {
-                if(!attendance.rowExists(i)) {
-                    continue;
-                }
-
-                final String lastName = attendance.getValue(i, Utils.LAST_NAME_COL);
-                if("#".equals(lastName)) {
-                    break;
-                }
-
-                final String firstName = attendance.getValue(i, Utils.FIRST_NAME_COL);
-
-                final Map<String, Student> byFirstName = studentsByName.get(lastName);
-                if(byFirstName == null || byFirstName.isEmpty()) {
-                    logger.warn("No student `" + firstName + " " + lastName + "` exists.");
-                    continue;
-                }
-
-                final Student student = byFirstName.get(firstName);
-                if(student == null) {
-                    logger.warn("No student `" + firstName + " " + lastName + "` exists.");
-                    continue;
-                }
-
-                student.processAttendance(i);
-            }
-
-            updateDate();
-        } catch (IOException e) {
-            throw new RobotechException("Failed to load attendance file", e);
+        logger.info("Loading attendance sheet");
+        final Sheet attendanceSheet = workbook.getSheet(attendanceSheetName);
+        if(attendanceSheet == null) {
+            throw new RuntimeException("Attendance worksheet " + attendanceSheetName + " does not exist");
         }
+        attendance = new SheetConfig(attendanceSheet, attHeaderRow);
+
+        final Sheet rosterSheet = workbook.getSheet(rosterSheetName);
+        if(rosterSheet == null) {
+            throw new RuntimeException("Roster worksheet " + rosterSheetName + " does not exist");
+        }
+        roster = new SheetConfig(rosterSheet,rosterHeaderRow);
+
+        // Now process the sheets into a set of students and their attendances.
+        // Start with the roster
+        for(int i = 0; i < roster.getDataRowCount(); i++) {
+            if(!roster.rowExists(i)) {
+                continue;
+            }
+
+            final String lastName = roster.getValue(i, Utils.LAST_NAME_COL);
+            final String firstName = roster.getValue(i, Utils.FIRST_NAME_COL);
+
+            final Map<String, Student> byFirstName = studentsByName.computeIfAbsent(lastName, k -> new TreeMap<>());
+            if(byFirstName.containsKey(firstName)) {
+                logger.error("Duplicate name! " + firstName + " " + lastName);
+                continue;
+            }
+
+            final Student student = new Student(i, roster, attendance);
+            byFirstName.put(firstName, student);
+            allStudents.add(student);
+
+            // If an ID existed, add to the mapping
+            if(student.getId() != null) {
+                studentsById.put(student.getId(), student);
+            }
+
+            student.addListener(studentListener);
+        }
+        sortStudents();
+
+        // Then process the attendance
+        for(int i = attFirstRow; i < attendance.getColumnCount(); i++) {
+            final String headerVal = attendance.getHeaderValue(i);
+            if("Total".equals(headerVal)) {
+                break;
+            }
+            switch(headerVal) {
+                case Utils.ID_COL:
+                case Utils.FIRST_NAME_COL:
+                case Utils.LAST_NAME_COL:
+                    break;
+                default:
+                    attendanceDates.add(Utils.getLocalDate(headerVal));
+            }
+        }
+        attendanceDates.sort(Comparator.comparing(LocalDate::toEpochDay));
+
+        for(int i = 0; i<attendance.getDataRowCount(); i++) {
+            if(!attendance.rowExists(i)) {
+                continue;
+            }
+
+            final String lastName = attendance.getValue(i, Utils.LAST_NAME_COL);
+            if("#".equals(lastName)) {
+                break;
+            }
+
+            final String firstName = attendance.getValue(i, Utils.FIRST_NAME_COL);
+
+            final Map<String, Student> byFirstName = studentsByName.get(lastName);
+            if(byFirstName == null || byFirstName.isEmpty()) {
+                logger.warn("No student `" + firstName + " " + lastName + "` exists.");
+                continue;
+            }
+
+            final Student student = byFirstName.get(firstName);
+            if(student == null) {
+                logger.warn("No student `" + firstName + " " + lastName + "` exists.");
+                continue;
+            }
+
+            student.processAttendance(i);
+        }
+
+        updateDate();
     }
 
     public Student getStudent(int index) {
@@ -235,24 +239,8 @@ public class StudentTable {
         return unsaved;
     }
 
-    public boolean save(File saveTo) {
-        System.out.println("Saving attendance to " + saveTo.getAbsolutePath());
-        try {
-            saveTo.createNewFile(); //create the file if it doesn't exist
-            FileOutputStream out = new FileOutputStream(saveTo);
-            workbook.write(out); // write the workbook to the file
-            out.close();
-        } catch(Exception e) {
-            logger.warn("Error writing spreadsheet: ", e);
-            return false;
-        }
-
+    public void setSaved() {
         unsaved = false;
-        return true;
-    }
-
-    public File getFile() {
-        return this.worksheetPath.toFile();
     }
 
     List<LocalDate> getAttendanceDates() {

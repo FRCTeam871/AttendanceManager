@@ -7,6 +7,8 @@ import com.team871.sensing.BarcodeResult;
 import com.team871.sensing.JPOSSense;
 import com.team871.util.BarcodeUtils;
 import com.team871.util.Settings;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,6 +21,9 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -50,19 +55,30 @@ public class AttendanceManager {
 
     TableRenderer tableRenderer;
     StudentTable table;
+
+    TableRenderer mentorRenderer;
+    StudentTable mentorTable;
+
+    DisplayTable displayTable = DisplayTable.Students;
+
     private boolean enteringNewSID = false;
 
-    private SettingsMenu settings;
+    private SettingsMenu settingsMenu;
 
     private int clearTimerMax = 60 * 4;
     private int clearTimer = clearTimerMax;
 
     private State currentState = State.Normal;
+    private Workbook workbook;
 
     private enum State {
         Settings,
         Normal,
         Shutdown
+    }
+
+    private enum DisplayTable {
+        Students, Mentors
     }
 
     public static void main(String[] args) {
@@ -93,29 +109,46 @@ public class AttendanceManager {
 
     private void init() throws RobotechException {
         barcodeSensor = new JPOSSense();
-        settings = new SettingsMenu(this, barcodeSensor);
+        settingsMenu = new SettingsMenu(this, barcodeSensor);
         barcodeSensor.addListener( (code, changed) -> {
             if (BarcodeUtils.isSettingsCommand(code)) {
-                settings.handleResult(code);
+                settingsMenu.handleResult(code);
             } else if(BarcodeUtils.isAdminCommand(code)) {
                 handleAdmin(code);
             } else if(changed) {
                 handleBarcode(code);
             }
         });
+        final Settings settings = Settings.getInstance();
 
-        table = new StudentTable(Settings.getInstance().getSheetPath());
+        try(final FileInputStream stream = new FileInputStream(settings.getSheetPath().toFile())) {
+            workbook = WorkbookFactory.create(stream);
+        } catch (IOException e) {
+            throw new RobotechException("Failed to load attendance file", e);
+        }
 
+        table = new StudentTable(workbook,
+                                settings.getRosterSheet(), settings.getAttendanceSheet(),
+                                settings.getAttendanceHeaderRow(), settings.getRosterHeaderRow(),
+                                settings.getAttendanceFirstDataRow(), settings.getRosterFirstDataRow());
         tableRenderer = new TableRenderer(table);
 
+        mentorTable = new StudentTable(workbook,
+                settings.getMentorRosterSheet(), settings.getMentorAttendanceSheet(),
+                settings.getMentorAttendanceHeaderRow(), settings.getMentorRosterHeaderRow(),
+                settings.getMentorAttendanceFirstDataRow(), settings.getMentorRosterFirstDataRow());
+
+        mentorRenderer = new TableRenderer(mentorTable);
+
         frame.addMouseWheelListener(tableRenderer);
+        frame.addMouseWheelListener(mentorRenderer);
         frame.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_S && e.isControlDown()) {
                     showSaveDialog();
                 } else if(e.getKeyCode() == KeyEvent.VK_Q && e.isControlDown()) {
-                    if (table.hasUnsaved()) {
+                    if (table.hasUnsaved() || mentorTable.hasUnsaved()) {
                         int result = JOptionPane.showConfirmDialog(frame.getCanvas(), "You have unsaved changes!\nDo you want to save?", frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
 
                         switch (result) {
@@ -141,7 +174,16 @@ public class AttendanceManager {
                 } else if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown() && e.isAltDown()) {
                     playYeaTim();
                 } else if(e.getKeyCode() == KeyEvent.VK_L) {
-                    settings.doManualLogin();
+                    settingsMenu.doManualLogin();
+                } else if(e.getKeyCode() == KeyEvent.VK_N) {
+                    switch (displayTable) {
+                        case Students:
+                            displayTable = DisplayTable.Mentors;
+                            break;
+                        case Mentors:
+                            displayTable = DisplayTable.Students;
+                            break;
+                    }
                 }
             }
         });
@@ -206,8 +248,15 @@ public class AttendanceManager {
         }
 
         barcodeSensor.tick(time);
-        tableRenderer.tick(time);
-        settings.tick(time);
+        switch (displayTable) {
+            case Students:
+                tableRenderer.tick(time);
+                break;
+            case Mentors:
+                mentorRenderer.tick(time);
+                break;
+        }
+        settingsMenu.tick(time);
 
         if (clearTimer > 0) {
             clearTimer--;
@@ -228,7 +277,7 @@ public class AttendanceManager {
         final Canvas canvas = frame.getCanvas();
         switch (currentState) {
             case Settings:
-                settings.render(g, canvas.getWidth(), canvas.getHeight());
+                settingsMenu.render(g, canvas.getWidth(), canvas.getHeight());
                 break;
             case Normal:
                 renderNormal(g, canvas.getWidth(), canvas.getHeight());
@@ -309,8 +358,16 @@ public class AttendanceManager {
         g.setClip(tableRect);
         g.translate(tableRect.x, tableRect.y);
 
-        tableRenderer.setDimension(tableRect);
-        tableRenderer.drawTable(g);
+        switch (displayTable) {
+            case Students:
+                tableRenderer.setDimension(tableRect);
+                tableRenderer.drawTable(g);
+                break;
+            case Mentors:
+                mentorRenderer.setDimension(tableRect);
+                mentorRenderer.drawTable(g);
+                break;
+        }
 
         g.setTransform(tr);
     }
@@ -434,7 +491,7 @@ public class AttendanceManager {
     }
 
     private void showSaveDialog() {
-        if(!table.areAllSignedOut()) {
+        if(!table.areAllSignedOut() || !mentorTable.areAllSignedOut()) {
             int result = JOptionPane.showConfirmDialog(null, "There are people that haven't signed out.\nDo you want to sign them out?\n(If not, sign in time will be saved)", "Attendance Manager", JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
             if (result == JOptionPane.YES_OPTION) {
                 table.forceSignOut();
@@ -442,13 +499,27 @@ public class AttendanceManager {
         }
 
         final JFileChooser chooser = new JFileChooser();
-        chooser.setSelectedFile(table.getFile());
+        chooser.setSelectedFile(Settings.getInstance().getSheetPath().toFile());
         chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
         chooser.setMultiSelectionEnabled(false);
         chooser.showOpenDialog(frame.getCanvas());
 
         final File f = chooser.getSelectedFile();
-        final boolean success = table.save(f);
+
+        boolean success = true;
+        System.out.println("Saving attendance to " + f.getAbsolutePath());
+        try {
+            f.createNewFile(); //create the file if it doesn't exist
+            FileOutputStream out = new FileOutputStream(f);
+            workbook.write(out); // write the workbook to the file
+            out.close();
+        } catch(Exception e) {
+            logger.warn("Error writing spreadsheet: ", e);
+            success = false;
+        }
+
+        table.setSaved();
+        mentorTable.setSaved();
 
         if (success) {
             JOptionPane.showMessageDialog(frame.getCanvas(), "Attendance saved.", frame.getTitle(), JOptionPane.INFORMATION_MESSAGE);
@@ -480,5 +551,28 @@ public class AttendanceManager {
 
     public Canvas getCanvas() {
         return frame.getCanvas();
+    }
+
+    //// incubation
+    public Map<String, Student> getStudentsByLastName(String name) {
+        switch (displayTable) {
+            case Students:
+                return table.getStudentsByLastName(name);
+            case Mentors:
+                return mentorTable.getStudentsByLastName(name);
+        }
+
+        return null;
+    }
+
+    public void createStudent(String first, String last) {
+        switch (displayTable) {
+            case Students:
+                table.createStudent(first, last);
+                break;
+            case Mentors:
+                mentorTable.createStudent(first, last);
+                break;
+        }
     }
 }

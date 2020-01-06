@@ -38,5 +38,4 @@ public class UICanvas extends Canvas {
     public void resizeCanvas(int w, int h){
         img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
     }
-
 }
