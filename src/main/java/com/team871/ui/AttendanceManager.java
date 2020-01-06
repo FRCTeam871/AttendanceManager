@@ -415,7 +415,8 @@ public class AttendanceManager {
             logger.error("Error validating MD5sum", e);
         }
 
-        final Student student = table.getStudentById(newSID);
+        final StudentTable activeTable = displayTable == DisplayTable.Students ? table : mentorTable;
+        final Student student = activeTable.getStudentById(newSID);
         if (student != null) {
             handleLogin(student);
         } else if (!enteringNewSID) {
@@ -425,6 +426,8 @@ public class AttendanceManager {
     }
 
     private void handleNewSID(String sid) {
+        final StudentTable activeTable = displayTable == DisplayTable.Students ? table : mentorTable;
+
         int response = JOptionPane.showConfirmDialog(frame.getCanvas(), "The scanned ID is not present in the system.\nAdd it?", frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
 
         cancel:
@@ -436,7 +439,7 @@ public class AttendanceManager {
                 if (name == null) {
                     break cancel;
                 }
-            } while ((students = table.getStudentsWithLastName(name)).isEmpty());
+            } while ((students = activeTable.getStudentsWithLastName(name)).isEmpty());
 
             Student student;
             if (students.size() > 1) {
@@ -495,6 +498,7 @@ public class AttendanceManager {
             int result = JOptionPane.showConfirmDialog(null, "There are people that haven't signed out.\nDo you want to sign them out?\n(If not, sign in time will be saved)", "Attendance Manager", JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
             if (result == JOptionPane.YES_OPTION) {
                 table.forceSignOut();
+                mentorTable.forceSignOut();
             }
         }
 
