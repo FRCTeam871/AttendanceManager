@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Student implements Comparable<Student> {
+public class Member implements Comparable<Member> {
     private String firstName;
     private String lastName;
     private final Map<LocalDate, AttendanceItem> attendance = new HashMap<>();
@@ -31,13 +31,13 @@ public class Student implements Comparable<Student> {
     private final SheetConfig attendanceSheet;
 
     public interface Listener {
-        void onLogin(Student student);
-        void onLogout(Student student);
-        void onNameChanged(Student student, String oldLastName, String oldFirstName);
+        void onLogin(Member member);
+        void onLogout(Member member);
+        void onNameChanged(Member member, String oldLastName, String oldFirstName);
         void onIdChanged();
     }
 
-    public Student(int row, SheetConfig roster, SheetConfig attendanceSheet) {
+    public Member(int row, SheetConfig roster, SheetConfig attendanceSheet) {
         this.rosterRow = row;
         this.lastName = roster.getValue(row, Utils.LAST_NAME_COL);
         this.firstName = roster.getValue(row, Utils.FIRST_NAME_COL);
@@ -54,7 +54,7 @@ public class Student implements Comparable<Student> {
         this.attendanceSheet = attendanceSheet;
     }
 
-    public Student(String firstName, String lastName, SheetConfig rosterSheet, SheetConfig attendanceSheet) {
+    public Member(String firstName, String lastName, SheetConfig rosterSheet, SheetConfig attendanceSheet) {
         this.firstName = firstName;
         this.lastName = lastName;
 
@@ -138,7 +138,7 @@ public class Student implements Comparable<Student> {
     }
 
     @Override
-    public int compareTo(@NotNull Student o) {
+    public int compareTo(@NotNull Member o) {
         int result = lastName.compareTo(o.lastName);
         if(result == 0) {
             result = firstName.compareTo(o.firstName);

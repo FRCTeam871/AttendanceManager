@@ -1,6 +1,6 @@
 package com.team871.ui;
 
-import com.team871.data.Student;
+import com.team871.data.Member;
 import com.team871.exception.RobotechException;
 import com.team871.sensing.AbstractBarcodeReader;
 import com.team871.sensing.BarcodeResult;
@@ -51,13 +51,13 @@ public class AttendanceManager {
 
     private BarcodeResult lastResult;
     private String lastSID = "???";
-    private Student student = null;
+    private Member member = null;
 
     TableRenderer tableRenderer;
-    StudentTable table;
+    AttendanceTable table;
 
     TableRenderer mentorRenderer;
-    StudentTable mentorTable;
+    AttendanceTable mentorTable;
 
     DisplayTable displayTable = DisplayTable.Students;
 
@@ -127,13 +127,13 @@ public class AttendanceManager {
             throw new RobotechException("Failed to load attendance file", e);
         }
 
-        table = new StudentTable(workbook,
+        table = new AttendanceTable(workbook,
                                 settings.getRosterSheet(), settings.getAttendanceSheet(),
                                 settings.getAttendanceHeaderRow(), settings.getRosterHeaderRow(),
                                 settings.getAttendanceFirstDataRow(), settings.getRosterFirstDataRow());
         tableRenderer = new TableRenderer(table);
 
-        mentorTable = new StudentTable(workbook,
+        mentorTable = new AttendanceTable(workbook,
                 settings.getMentorRosterSheet(), settings.getMentorAttendanceSheet(),
                 settings.getMentorAttendanceHeaderRow(), settings.getMentorRosterHeaderRow(),
                 settings.getMentorAttendanceFirstDataRow(), settings.getMentorRosterFirstDataRow());
@@ -263,7 +263,7 @@ public class AttendanceManager {
             if (clearTimer == 0) {
                 clearTimer = -1;
                 lastResult = null;
-                student = null;
+                member = null;
                 lastSID = "???";
                 barcodeSensor.resetLast();
             }
@@ -337,7 +337,7 @@ public class AttendanceManager {
         lines.add("Scanned: " + (lastResult == null ? "???" : lastResult.getText()));
         lines.add("SID (hash): " + lastSID);
         if (!lastSID.equalsIgnoreCase("???")) {
-            lines.add("Name: " + student.getLastName());
+            lines.add("Name: " + member.getLastName());
         }
 
         for (int i = 0; i < lines.size(); i++) {
@@ -391,7 +391,7 @@ public class AttendanceManager {
 
         logger.info("Scanned: " + result.getText());
         clearTimer = clearTimerMax;
-        student = null;
+        this.member = null;
         final String newSID = result.getText().replaceFirst("^0+(?!$)", ""); // remove leading zeros;
 
         if(!isValidSID(newSID)) {
@@ -399,7 +399,7 @@ public class AttendanceManager {
             lastSID = "INVALID";
             if (lastResult.getText().equals("871")) {
                 lastSID = "YEA TIM";
-                student = null;
+                this.member = null;
                 playYeaTim();
             }
             return;
@@ -415,10 +415,10 @@ public class AttendanceManager {
             logger.error("Error validating MD5sum", e);
         }
 
-        final StudentTable activeTable = displayTable == DisplayTable.Students ? table : mentorTable;
-        final Student student = activeTable.getStudentById(newSID);
-        if (student != null) {
-            handleLogin(student);
+        final AttendanceTable activeTable = displayTable == DisplayTable.Students ? table : mentorTable;
+        final Member member = activeTable.getStudentById(newSID);
+        if (member != null) {
+            handleLogin(member);
         } else if (!enteringNewSID) {
             enteringNewSID = true;
             SwingUtilities.invokeLater(() -> handleNewSID(newSID));
@@ -426,13 +426,13 @@ public class AttendanceManager {
     }
 
     private void handleNewSID(String sid) {
-        final StudentTable activeTable = displayTable == DisplayTable.Students ? table : mentorTable;
+        final AttendanceTable activeTable = displayTable == DisplayTable.Students ? table : mentorTable;
 
         int response = JOptionPane.showConfirmDialog(frame.getCanvas(), "The scanned ID is not present in the system.\nAdd it?", frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
 
         cancel:
         if (response == JOptionPane.YES_OPTION) {
-            Map<String, Student> students;
+            Map<String, Member> students;
             String name = null;
             do {
                 name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name for the member associated with this ID:");
@@ -441,7 +441,7 @@ public class AttendanceManager {
                 }
             } while ((students = activeTable.getStudentsWithLastName(name)).isEmpty());
 
-            Student student;
+            Member member;
             if (students.size() > 1) {
                 String firstName = null;
                 do {
@@ -449,33 +449,33 @@ public class AttendanceManager {
                     if (firstName == null) {
                         break cancel;
                     }
-                } while ((student = students.get(firstName)) == null);
+                } while ((member = students.get(firstName)) == null);
             } else {
-                student = students.values().iterator().next();
+                member = students.values().iterator().next();
             }
 
-            student.setId(sid);
-            handleLogin(student);
+            member.setId(sid);
+            handleLogin(member);
         }
 
         enteringNewSID = false;
     }
 
-    private void handleLogin(Student student) {
+    private void handleLogin(Member member) {
         if (barcodeSensor instanceof JPOSSense) {
             ((JPOSSense) barcodeSensor).dance();
         }
 
         final LocalDate today = Settings.getInstance().getDate();
-        if (!student.isSignedIn(today)) {
-            student.signIn(today);
+        if (!member.isSignedIn(today)) {
+            member.signIn(today);
             flashTimer = flashTimerMax;
-        } else if (student.isSignedIn(today)) {
-            student.signOut(today);
+        } else if (member.isSignedIn(today)) {
+            member.signOut(today);
             flashTimer = flashTimerMax;
         }
 
-        this.student = student;
+        this.member = member;
     }
 
     private void handleAdmin(BarcodeResult result) {
@@ -558,7 +558,7 @@ public class AttendanceManager {
     }
 
     //// incubation
-    public Map<String, Student> getStudentsByLastName(String name) {
+    public Map<String, Member> getStudentsByLastName(String name) {
         switch (displayTable) {
             case Students:
                 return table.getStudentsByLastName(name);

@@ -1,7 +1,7 @@
 package com.team871.ui;
 
 import com.team871.data.SheetConfig;
-import com.team871.data.Student;
+import com.team871.data.Member;
 import com.team871.exception.RobotechException;
 import com.team871.util.Settings;
 import com.team871.util.Utils;
@@ -12,37 +12,37 @@ import org.slf4j.LoggerFactory;
 import java.time.LocalDate;
 import java.util.*;
 
-public class StudentTable {
-    private static final Logger logger = LoggerFactory.getLogger(StudentTable.class);
+public class AttendanceTable {
+    private static final Logger logger = LoggerFactory.getLogger(AttendanceTable.class);
 
-    private final Map<String, Map<String, Student>> studentsByName = new TreeMap<>();
-    private final Map<String, Student> studentsById = new HashMap<>();
-    private final List<Student> allStudents = new ArrayList<>();
+    private final Map<String, Map<String, Member>> studentsByName = new TreeMap<>();
+    private final Map<String, Member> studentsById = new HashMap<>();
+    private final List<Member> allMembers = new ArrayList<>();
     private final List<Listener> listeners = new ArrayList<>();
-    private final Student.Listener studentListener = new Student.Listener() {
+    private final Member.Listener studentListener = new Member.Listener() {
         @Override
-        public void onLogin(Student student) {
-            listeners.forEach(l -> l.onSignIn(student));
+        public void onLogin(Member member) {
+            listeners.forEach(l -> l.onSignIn(member));
         }
 
         @Override
-        public void onLogout(Student student) {
-            listeners.forEach(l -> l.onSignOut(student));
+        public void onLogout(Member member) {
+            listeners.forEach(l -> l.onSignOut(member));
         }
 
         @Override
-        public void onNameChanged(Student student, String oldLastName, String oldFirstName) {
-            Map<String, Student> byFirstName = studentsByName.get(oldLastName);
+        public void onNameChanged(Member member, String oldLastName, String oldFirstName) {
+            Map<String, Member> byFirstName = studentsByName.get(oldLastName);
             if(byFirstName == null) {
                 throw new IllegalStateException("Student never existed");
             }
 
             byFirstName.remove(oldFirstName);
-            byFirstName = studentsByName.computeIfAbsent(student.getLastName(), n -> new HashMap<>());
-            byFirstName.put(student.getFirstName(), student);
+            byFirstName = studentsByName.computeIfAbsent(member.getLastName(), n -> new HashMap<>());
+            byFirstName.put(member.getFirstName(), member);
 
             sortStudents();
-            listeners.forEach(l -> l.nameChanged(student));
+            listeners.forEach(l -> l.nameChanged(member));
         }
 
         @Override
@@ -52,7 +52,7 @@ public class StudentTable {
     };
 
     private void sortStudents() {
-        allStudents.sort(Comparator.comparing(Student::getLastName).thenComparing(Student::getFirstName));
+        allMembers.sort(Comparator.comparing(Member::getLastName).thenComparing(Member::getFirstName));
     }
 
     private Workbook workbook;
@@ -69,15 +69,15 @@ public class StudentTable {
     private boolean unsaved = false;
 
     public interface Listener {
-        void onSignIn(Student student);
-        void onSignOut(Student student);
-        void nameChanged(Student student);
-        void onStudentAdded(Student student);
+        void onSignIn(Member member);
+        void onSignOut(Member member);
+        void nameChanged(Member member);
+        void onStudentAdded(Member member);
     }
 
-    public StudentTable(Workbook workbook, String rosterSheet, String attendanceSheet,
-                        int attHeaderRow, int rosterHeaderRow,
-                        int attFirstRow, int rosterFirstRow) throws RobotechException {
+    public AttendanceTable(Workbook workbook, String rosterSheet, String attendanceSheet,
+                           int attHeaderRow, int rosterHeaderRow,
+                           int attFirstRow, int rosterFirstRow) throws RobotechException {
         this.workbook = workbook;
         this.rosterSheetName = rosterSheet;
         this.attendanceSheetName = attendanceSheet;
@@ -90,28 +90,28 @@ public class StudentTable {
         Settings.getInstance().addListener(this::updateDate);
     }
 
-    public Map<String, Student> getStudentsWithLastName(String lastName) {
+    public Map<String, Member> getStudentsWithLastName(String lastName) {
         return studentsByName.getOrDefault(lastName, Collections.emptyMap());
     }
 
-    public int getStudentIndex(Student highlightStudent) {
-        return allStudents.indexOf(highlightStudent);
+    public int getStudentIndex(Member highlightMember) {
+        return allMembers.indexOf(highlightMember);
     }
 
     public void createStudent(String first, String last) {
-        final Map<String, Student> byFirstName = studentsByName.computeIfAbsent(last, n -> new HashMap<>());
+        final Map<String, Member> byFirstName = studentsByName.computeIfAbsent(last, n -> new HashMap<>());
         if(byFirstName.containsKey(first)) {
             throw new IllegalStateException("Name already exists!");
         }
 
-        final Student student = new Student(first, last, roster, attendance);
-        student.addListener(studentListener);
+        final Member member = new Member(first, last, roster, attendance);
+        member.addListener(studentListener);
 
-        byFirstName.put(student.getFirstName(), student);
-        allStudents.add(student);
+        byFirstName.put(member.getFirstName(), member);
+        allMembers.add(member);
         sortStudents();
 
-        listeners.forEach(l -> l.onStudentAdded(student));
+        listeners.forEach(l -> l.onStudentAdded(member));
     }
 
     public void addListener(Listener l) {
@@ -146,22 +146,22 @@ public class StudentTable {
             final String lastName = roster.getValue(i, Utils.LAST_NAME_COL);
             final String firstName = roster.getValue(i, Utils.FIRST_NAME_COL);
 
-            final Map<String, Student> byFirstName = studentsByName.computeIfAbsent(lastName, k -> new TreeMap<>());
+            final Map<String, Member> byFirstName = studentsByName.computeIfAbsent(lastName, k -> new TreeMap<>());
             if(byFirstName.containsKey(firstName)) {
                 logger.error("Duplicate name! " + firstName + " " + lastName);
                 continue;
             }
 
-            final Student student = new Student(i, roster, attendance);
-            byFirstName.put(firstName, student);
-            allStudents.add(student);
+            final Member member = new Member(i, roster, attendance);
+            byFirstName.put(firstName, member);
+            allMembers.add(member);
 
             // If an ID existed, add to the mapping
-            if(student.getId() != null) {
-                studentsById.put(student.getId(), student);
+            if(member.getId() != null) {
+                studentsById.put(member.getId(), member);
             }
 
-            student.addListener(studentListener);
+            member.addListener(studentListener);
         }
         sortStudents();
 
@@ -194,38 +194,38 @@ public class StudentTable {
 
             final String firstName = attendance.getValue(i, Utils.FIRST_NAME_COL);
 
-            final Map<String, Student> byFirstName = studentsByName.get(lastName);
+            final Map<String, Member> byFirstName = studentsByName.get(lastName);
             if(byFirstName == null || byFirstName.isEmpty()) {
                 logger.warn("No student `" + firstName + " " + lastName + "` exists.");
                 continue;
             }
 
-            final Student student = byFirstName.get(firstName);
-            if(student == null) {
+            final Member member = byFirstName.get(firstName);
+            if(member == null) {
                 logger.warn("No student `" + firstName + " " + lastName + "` exists.");
                 continue;
             }
 
-            student.processAttendance(i);
+            member.processAttendance(i);
         }
 
         updateDate();
     }
 
-    public Student getStudent(int index) {
-        return allStudents.get(index);
+    public Member getStudent(int index) {
+        return allMembers.get(index);
     }
 
     public int getStudentCount() {
-        return allStudents.size();
+        return allMembers.size();
     }
 
-    public Student getStudentById(String id) {
+    public Member getStudentById(String id) {
         return studentsById.get(id);
     }
 
-    public Map<String, Student> getStudentsByLastName(String lastName) {
-        final Map<String, Student> byFirstName = studentsByName.get(lastName);
+    public Map<String, Member> getStudentsByLastName(String lastName) {
+        final Map<String, Member> byFirstName = studentsByName.get(lastName);
         if(byFirstName == null || byFirstName.isEmpty()) {
             return Collections.emptyMap();
         }
@@ -251,14 +251,14 @@ public class StudentTable {
             return false;
         }
 
-        return allStudents.stream()
+        return allMembers.stream()
                 .filter(s -> s.isSignedIn(Settings.getInstance().getDate()))
                 .allMatch(s -> s.isSignedOut(Settings.getInstance().getDate()));
     }
 
     public void forceSignOut() {
         final LocalDate date = Settings.getInstance().getDate();
-        allStudents.stream()
+        allMembers.stream()
                 .filter(s -> s.isSignedIn(date))
                 .forEach(s -> s.signOut(date));
     }

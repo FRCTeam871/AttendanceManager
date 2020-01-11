@@ -2,7 +2,7 @@ package com.team871.ui;
 
 import com.team871.data.FirstRegistration;
 import com.team871.data.SafeteyFormState;
-import com.team871.data.Student;
+import com.team871.data.Member;
 import com.team871.util.Settings;
 import com.team871.util.Utils;
 
@@ -23,7 +23,7 @@ public class TableRenderer implements MouseWheelListener {
     private static final Color PRESENT_EVEN = new Color(0.3f, 0.65f, 0.3f);
     private static final Color PRESENT_ODD = new Color(0.4f, 1f, 0.4f);
 
-    private final StudentTable table;
+    private final AttendanceTable table;
 
     private Font tableFont;
 
@@ -33,7 +33,7 @@ public class TableRenderer implements MouseWheelListener {
     private int indexColumnWidth = 0;
     private int attendanceColumnWidth = 0;
 
-    private Student highlightStudent;
+    private Member highlightMember;
     private int highlightTimer;
     private int highlightTimerMax = 120;
 
@@ -43,36 +43,36 @@ public class TableRenderer implements MouseWheelListener {
     private Rectangle dimension;
     private int maxScroll;
 
-    public TableRenderer(StudentTable table) {
+    public TableRenderer(AttendanceTable table) {
         this.table = table;
         tableFont = new Font("Arial", Font.BOLD, 12);
 
-        table.addListener(new StudentTable.Listener() {
+        table.addListener(new AttendanceTable.Listener() {
             @Override
-            public void onSignIn(Student student) {
-                highlightStudent(student);
+            public void onSignIn(Member member) {
+                highlightStudent(member);
             }
 
             @Override
-            public void onSignOut(Student student) {
-                highlightStudent(student);
+            public void onSignOut(Member member) {
+                highlightStudent(member);
             }
 
             @Override
-            public void nameChanged(Student student) {
-                highlightStudent(student);
+            public void nameChanged(Member member) {
+                highlightStudent(member);
             }
 
             @Override
-            public void onStudentAdded(Student student) {
-                highlightStudent(student);
+            public void onStudentAdded(Member member) {
+                highlightStudent(member);
             }
         });
     }
 
     public void tick(int time) {
         if(highlightTimer == 0) {
-            highlightStudent = null;
+            highlightMember = null;
             highlightTimer = -1;
         }
 
@@ -85,8 +85,8 @@ public class TableRenderer implements MouseWheelListener {
             speed = 5f;
             scrollTimer--;
         } else {
-            if (highlightStudent != null) {
-                destScroll = -(cellHeight * (table.getStudentIndex(highlightStudent) - 2));
+            if (highlightMember != null) {
+                destScroll = -(cellHeight * (table.getStudentIndex(highlightMember) - 2));
                 speed = 10f;
             } else {
                 destScroll = -(int) (((Math.sin(time / (60f * 4)) + 1) / 2f) * maxScroll);
@@ -141,22 +141,22 @@ public class TableRenderer implements MouseWheelListener {
     }
 
     private void drawRow(Graphics g, int cy, int cx, int r) {
-        final Student student = table.getStudent(r);
+        final Member member = table.getStudent(r);
 
         // Start with the default background
         Color cellColor;
 
         // Draw column headers ( ID, First/ Last Name )
-        drawCell(g, cx, cy, indexColumnWidth/2, cellHeight, getSafetyFormColor(student), null);
-        drawCell(g, cx + (indexColumnWidth/2), cy, indexColumnWidth/2, cellHeight, getRegistrationColor(student), null);
+        drawCell(g, cx, cy, indexColumnWidth/2, cellHeight, getSafetyFormColor(member), null);
+        drawCell(g, cx + (indexColumnWidth/2), cy, indexColumnWidth/2, cellHeight, getRegistrationColor(member), null);
         cellColor = new Color(0,0,0, 0);
         drawCell(g, cx, cy, indexColumnWidth, cellHeight, cellColor, Integer.toString(r + 1));
         cx += indexColumnWidth;
 
-        drawCell(g, cx, cy, NAME_COL_WIDTH, cellHeight, cellColor, student.getLastName());
+        drawCell(g, cx, cy, NAME_COL_WIDTH, cellHeight, cellColor, member.getLastName());
         cx += NAME_COL_WIDTH;
 
-        drawCell(g, cx, cy, NAME_COL_WIDTH, cellHeight, cellColor, student.getFirstName());
+        drawCell(g, cx, cy, NAME_COL_WIDTH, cellHeight, cellColor, member.getFirstName());
         cx += NAME_COL_WIDTH;
 
         boolean foundCurrentDate = false;
@@ -169,9 +169,9 @@ public class TableRenderer implements MouseWheelListener {
             cellColor = r % 2 == 0 ? Color.LIGHT_GRAY : Color.WHITE;
             if (isCurrentDateColumn) {
                 foundCurrentDate = true;
-                if (student.isSignedIn(date)) {
+                if (member.isSignedIn(date)) {
                     if (Settings.getInstance().getLoginType() == LoginType.IN_ONLY ||
-                            student.isSignedOut(date)) {
+                            member.isSignedOut(date)) {
                         cellColor = Color.GREEN;
                     } else {
                         cellColor = Color.ORANGE;
@@ -180,7 +180,7 @@ public class TableRenderer implements MouseWheelListener {
                     cellColor = CURRENT_DATE_COL;
                 }
             } else if (!foundCurrentDate) {
-                if (student.isSignedIn(date)) {
+                if (member.isSignedIn(date)) {
                     cellColor = r % 2 == 0 ? PRESENT_EVEN : PRESENT_ODD;
                 } else {
                     cellColor = r % 2 == 0 ? ABSENT_EVEN : ABSENT_ODD;
@@ -192,17 +192,17 @@ public class TableRenderer implements MouseWheelListener {
             String cellText = null;
             if (Settings.getInstance().getLoginType() == LoginType.IN_OUT &&
                     foundCurrentDate) {
-                if(student.isSignedOut(date)) {
-                    cellText = "Out: " + Utils.TIME_FORMATTER.format(student.getSignOutTime(date));
-                } else  if(student.isSignedIn(date)) {
-                    cellText = "In: " + Utils.TIME_FORMATTER.format(student.getSignInTime(date));
+                if(member.isSignedOut(date)) {
+                    cellText = "Out: " + Utils.TIME_FORMATTER.format(member.getSignOutTime(date));
+                } else  if(member.isSignedIn(date)) {
+                    cellText = "In: " + Utils.TIME_FORMATTER.format(member.getSignInTime(date));
                 }
             }
 
             drawCell(g, cx, cy, attendanceColumnWidth, cellHeight, cellColor, cellText);
 
             // Handle Highlighting now.
-            if (student == highlightStudent) {
+            if (member == highlightMember) {
                 int localMax = highlightTimerMax / 2;
                 if (isCurrentDateColumn) {
                     int timer = highlightTimerMax - highlightTimer - highlightTimerMax / 4;
@@ -234,8 +234,8 @@ public class TableRenderer implements MouseWheelListener {
         // Draw column footer (Totals)
     }
 
-    private Color getSafetyFormColor(Student student) {
-        final SafeteyFormState state = student.getSafeteyFormState();
+    private Color getSafetyFormColor(Member member) {
+        final SafeteyFormState state = member.getSafeteyFormState();
         if(state == null) {
             return Color.GRAY;
         }
@@ -253,8 +253,8 @@ public class TableRenderer implements MouseWheelListener {
         }
     }
 
-    private Color getRegistrationColor(Student student) {
-        final FirstRegistration registration = student.getRegistration();
+    private Color getRegistrationColor(Member member) {
+        final FirstRegistration registration = member.getRegistration();
         if(registration == null) {
             return Color.GRAY;
         }
@@ -282,8 +282,8 @@ public class TableRenderer implements MouseWheelListener {
         }
     }
 
-    private void highlightStudent(Student student) {
-        highlightStudent = student;
+    private void highlightStudent(Member member) {
+        highlightMember = member;
         highlightTimer = highlightTimerMax;
         scrollTimer = 0;
         scrollAcc = 0;
