@@ -46,8 +46,12 @@ public class AttendanceTable {
         }
 
         @Override
-        public void onIdChanged() {
+        public void onIdChanged(Member member, String oldSid) {
+            if(oldSid != null) {
+                studentsById.remove(oldSid);
+            }
 
+            studentsById.put(member.getId(), member);
         }
     };
 
@@ -146,6 +150,10 @@ public class AttendanceTable {
             final String lastName = roster.getValue(i, Utils.LAST_NAME_COL);
             final String firstName = roster.getValue(i, Utils.FIRST_NAME_COL);
 
+            if(Utils.isNullOrEmpty(lastName) || Utils.isNullOrEmpty(firstName)) {
+                continue;
+            }
+
             final Map<String, Member> byFirstName = studentsByName.computeIfAbsent(lastName, k -> new TreeMap<>());
             if(byFirstName.containsKey(firstName)) {
                 logger.error("Duplicate name! " + firstName + " " + lastName);
@@ -188,6 +196,9 @@ public class AttendanceTable {
             }
 
             final String lastName = attendance.getValue(i, Utils.LAST_NAME_COL);
+            if(Utils.isNullOrEmpty(lastName)) {
+                continue;
+            }
             if("#".equals(lastName)) {
                 break;
             }

@@ -4,6 +4,8 @@ import com.team871.util.Settings;
 import com.team871.util.ThrowingRunnable;
 import com.team871.util.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -13,6 +15,8 @@ import java.util.List;
 import java.util.Map;
 
 public class Member implements Comparable<Member> {
+    private static final Logger log = LoggerFactory.getLogger("Member");
+
     private String firstName;
     private String lastName;
     private final Map<LocalDate, AttendanceItem> attendance = new HashMap<>();
@@ -34,7 +38,7 @@ public class Member implements Comparable<Member> {
         void onLogin(Member member);
         void onLogout(Member member);
         void onNameChanged(Member member, String oldLastName, String oldFirstName);
-        void onIdChanged();
+        void onIdChanged(Member member, String oldSid);
     }
 
     public Member(int row, SheetConfig roster, SheetConfig attendanceSheet) {
@@ -183,10 +187,11 @@ public class Member implements Comparable<Member> {
     }
 
     public void setId(String sid) {
-        if(id != null) {
-            throw new IllegalStateException("ID is already set for " + firstName + " " + lastName);
-        }
+        final String oldId = id;
         this.id = sid;
+        rosterSheet.setCell(rosterRow, "SID", true, sid);
+
+        listeners.forEach(l -> l.onIdChanged(this, oldId));
     }
 
     public void setName(String first, String last) {
@@ -222,7 +227,12 @@ public class Member implements Comparable<Member> {
     }
 
     private void updateAttendanceCell(LocalDate date, AttendanceItem item) {
-        attendanceSheet.setCell(attendanceRow, Utils.DATE_FORMATTER.format(date), true, "(" +
+        final String columnName = Utils.DATE_FORMATTER.format(date);
+        if(!attendanceSheet.columnExists(columnName)) {
+            attendanceSheet.addColumn(columnName);
+        }
+
+        attendanceSheet.setCell(attendanceRow, columnName, true, "(" +
                 Utils.TIME_FORMATTER.format(item.getInTime()) + "," +
                 (item.getOutTime() == null ? "" : Utils.TIME_FORMATTER.format(item.getOutTime())) + ")");
     }

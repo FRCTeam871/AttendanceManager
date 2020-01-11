@@ -115,7 +115,7 @@ public class AttendanceManager {
                 settingsMenu.handleResult(code);
             } else if(BarcodeUtils.isAdminCommand(code)) {
                 handleAdmin(code);
-            } else if(changed) {
+            } else {
                 handleBarcode(code);
             }
         });
@@ -336,7 +336,7 @@ public class AttendanceManager {
         final List<String> lines = new ArrayList<>();
         lines.add("Scanned: " + (lastResult == null ? "???" : lastResult.getText()));
         lines.add("SID (hash): " + lastSID);
-        if (!lastSID.equalsIgnoreCase("???")) {
+        if (!lastSID.equalsIgnoreCase("???") && member != null) {
             lines.add("Name: " + member.getLastName());
         }
 
@@ -415,8 +415,7 @@ public class AttendanceManager {
             logger.error("Error validating MD5sum", e);
         }
 
-        final AttendanceTable activeTable = displayTable == DisplayTable.Students ? table : mentorTable;
-        final Member member = activeTable.getStudentById(newSID);
+        final Member member = findMember(newSID);
         if (member != null) {
             handleLogin(member);
         } else if (!enteringNewSID) {
@@ -425,9 +424,16 @@ public class AttendanceManager {
         }
     }
 
-    private void handleNewSID(String sid) {
-        final AttendanceTable activeTable = displayTable == DisplayTable.Students ? table : mentorTable;
+    private Member findMember(String newSID) {
+        Member member = table.getStudentById(newSID);
+        if(member == null) {
+            member = mentorTable.getStudentById(newSID);
+        }
 
+        return member;
+    }
+
+    private void handleNewSID(String sid) {
         int response = JOptionPane.showConfirmDialog(frame.getCanvas(), "The scanned ID is not present in the system.\nAdd it?", frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
 
         cancel:
@@ -439,7 +445,7 @@ public class AttendanceManager {
                 if (name == null) {
                     break cancel;
                 }
-            } while ((students = activeTable.getStudentsWithLastName(name)).isEmpty());
+            } while ((students = getStudentsWithLastName(name)).isEmpty());
 
             Member member;
             if (students.size() > 1) {
@@ -459,6 +465,16 @@ public class AttendanceManager {
         }
 
         enteringNewSID = false;
+    }
+
+    Map<String, Member> getStudentsWithLastName(String name) {
+        Map<String, Member> members = table.getStudentsWithLastName(name);
+
+        if(members == null || members.isEmpty()) {
+            members = mentorTable.getStudentsWithLastName(name);
+        }
+
+        return members;
     }
 
     private void handleLogin(Member member) {
@@ -558,16 +574,6 @@ public class AttendanceManager {
     }
 
     //// incubation
-    public Map<String, Member> getStudentsByLastName(String name) {
-        switch (displayTable) {
-            case Students:
-                return table.getStudentsByLastName(name);
-            case Mentors:
-                return mentorTable.getStudentsByLastName(name);
-        }
-
-        return null;
-    }
 
     public void createStudent(String first, String last) {
         switch (displayTable) {
