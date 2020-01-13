@@ -10,7 +10,7 @@ public class SheetConfig {
 
     private final Sheet sheet;
     private final int headerRow;
-    private final int columnCount;
+    private int columnCount;
     private final Map<String, Integer> columnMap;
 
     public SheetConfig(Sheet sheet, int headerRow) {
@@ -74,7 +74,7 @@ public class SheetConfig {
 
     public void setCell(int rowNum, String column, boolean create, String value) {
         final Integer cellIndex = columnMap.get(column);
-        if(cellIndex == null) {
+        if(cellIndex == null ) {
             throw new IllegalArgumentException("Column " + column + " does not exist");
         }
 
@@ -93,5 +93,15 @@ public class SheetConfig {
         }
 
         cell.setCellValue(value);
+    }
+
+    public boolean columnExists(String columnName) {
+        return columnMap.get(columnName) != null;
+    }
+
+    public void addColumn(String columnName) {
+        columnMap.put(columnName, columnCount);
+        columnCount++;
+        setCell(-1, columnName, true, columnName);
     }
 }

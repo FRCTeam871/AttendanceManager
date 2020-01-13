@@ -1,6 +1,6 @@
 package com.team871.ui;
 
-import com.team871.data.Student;
+import com.team871.data.Member;
 import com.team871.sensing.BarcodeResult;
 import com.team871.sensing.AbstractBarcodeReader;
 import com.team871.util.BarcodeUtils;
@@ -60,13 +60,13 @@ public class SettingsMenu implements TickListener {
             lock = false;
         }).start());
 
-        actions.put(BarcodeUtils.getBarcodeByName("Sign In/Out by Name"), () -> doManualLogin());
+        actions.put(BarcodeUtils.getBarcodeByName("Sign In/Out by Name"), this::doManualLogin);
 
         actions.put(BarcodeUtils.getBarcodeByName("Toggle Fullscreen"), () -> attendanceManager.setFullscreen(!attendanceManager.isFullscreen()));
 
         actions.put(BarcodeUtils.getBarcodeByName("Correct Name"), () -> new Thread(()-> {
-            final Student student = getStudent();
-            if(student == null) {
+            final Member member = getStudent();
+            if(member == null) {
                 return;
             }
             String res = null;
@@ -78,7 +78,7 @@ public class SettingsMenu implements TickListener {
                         continue;
                     }
 
-                    student.setName(parts[0], parts[1]);
+                    member.setName(parts[0], parts[1]);
                     return;
                 } else {
                     break;
@@ -96,14 +96,14 @@ public class SettingsMenu implements TickListener {
                         continue;
                     }
 
-                    Map<String, Student> byFirstName = attendanceManager.table.getStudentsByLastName(parts[1]);
+                    Map<String, Member> byFirstName = attendanceManager.getStudentsWithLastName(parts[1]);
                     if(byFirstName != null) {
                         if(byFirstName.get(parts[0]) != null) {
                             break;
                         }
                     }
 
-                    attendanceManager.table.createStudent(parts[0], parts[1]);
+                    attendanceManager.createStudent(parts[0], parts[1]);
                     return;
                 } else {
                     break;
@@ -115,18 +115,18 @@ public class SettingsMenu implements TickListener {
     public void doManualLogin() {
         new Thread(() -> {
             lock = true;
-            final Student student = getStudent();
-            if(student == null) {
+            final Member member = getStudent();
+            if(member == null) {
                 lock = false;
                 return;
             }
 
             final LocalDate date = Settings.getInstance().getDate();
-            if (!student.isSignedIn(date)) {
-                student.signIn(date);
+            if (!member.isSignedIn(date)) {
+                member.signIn(date);
                 JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed in.");
             } else {
-                student.signOut(date);
+                member.signOut(date);
                 JOptionPane.showMessageDialog(attendanceManager.getCanvas(), "Signed out.");
             }
 
@@ -134,17 +134,17 @@ public class SettingsMenu implements TickListener {
         }).start();
     }
 
-    private Student getStudent() {
-        Map<String, Student> students;
+    private Member getStudent() {
+        Map<String, Member> students;
         String name = null;
         do {
             name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name of the member:");
             if (name == null) {
                 return null;
             }
-        } while ((students = attendanceManager.table.getStudentsByLastName(name)).isEmpty());
+        } while ((students = attendanceManager.getStudentsWithLastName(name)).isEmpty());
 
-        Student student;
+        Member member;
         if (students.size() > 1) {
             String firstName = null;
             do {
@@ -152,12 +152,12 @@ public class SettingsMenu implements TickListener {
                 if (firstName == null) {
                     return null;
                 }
-            } while ((student = students.get(firstName)) == null);
+            } while ((member = students.get(firstName)) == null);
         } else {
-            student = students.values().stream().findFirst().get();
+            member = students.values().stream().findFirst().get();
         }
 
-        return student;
+        return member;
     }
 
     public void tick(long time) {

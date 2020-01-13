@@ -4,6 +4,8 @@ import com.team871.util.Settings;
 import com.team871.util.ThrowingRunnable;
 import com.team871.util.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -12,7 +14,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Student implements Comparable<Student> {
+public class Member implements Comparable<Member> {
+    private static final Logger log = LoggerFactory.getLogger("Member");
+
     private String firstName;
     private String lastName;
     private final Map<LocalDate, AttendanceItem> attendance = new HashMap<>();
@@ -31,13 +35,13 @@ public class Student implements Comparable<Student> {
     private final SheetConfig attendanceSheet;
 
     public interface Listener {
-        void onLogin(Student student);
-        void onLogout(Student student);
-        void onNameChanged(Student student, String oldLastName, String oldFirstName);
-        void onIdChanged();
+        void onLogin(Member member);
+        void onLogout(Member member);
+        void onNameChanged(Member member, String oldLastName, String oldFirstName);
+        void onIdChanged(Member member, String oldSid);
     }
 
-    public Student(int row, SheetConfig roster, SheetConfig attendanceSheet) {
+    public Member(int row, SheetConfig roster, SheetConfig attendanceSheet) {
         this.rosterRow = row;
         this.lastName = roster.getValue(row, Utils.LAST_NAME_COL);
         this.firstName = roster.getValue(row, Utils.FIRST_NAME_COL);
@@ -54,7 +58,7 @@ public class Student implements Comparable<Student> {
         this.attendanceSheet = attendanceSheet;
     }
 
-    public Student(String firstName, String lastName, SheetConfig rosterSheet, SheetConfig attendanceSheet) {
+    public Member(String firstName, String lastName, SheetConfig rosterSheet, SheetConfig attendanceSheet) {
         this.firstName = firstName;
         this.lastName = lastName;
 
@@ -138,7 +142,7 @@ public class Student implements Comparable<Student> {
     }
 
     @Override
-    public int compareTo(@NotNull Student o) {
+    public int compareTo(@NotNull Member o) {
         int result = lastName.compareTo(o.lastName);
         if(result == 0) {
             result = firstName.compareTo(o.firstName);
@@ -183,10 +187,11 @@ public class Student implements Comparable<Student> {
     }
 
     public void setId(String sid) {
-        if(id != null) {
-            throw new IllegalStateException("ID is already set for " + firstName + " " + lastName);
-        }
+        final String oldId = id;
         this.id = sid;
+        rosterSheet.setCell(rosterRow, "SID", true, sid);
+
+        listeners.forEach(l -> l.onIdChanged(this, oldId));
     }
 
     public void setName(String first, String last) {
@@ -222,7 +227,12 @@ public class Student implements Comparable<Student> {
     }
 
     private void updateAttendanceCell(LocalDate date, AttendanceItem item) {
-        attendanceSheet.setCell(attendanceRow, Utils.DATE_FORMATTER.format(date), true, "(" +
+        final String columnName = Utils.DATE_FORMATTER.format(date);
+        if(!attendanceSheet.columnExists(columnName)) {
+            attendanceSheet.addColumn(columnName);
+        }
+
+        attendanceSheet.setCell(attendanceRow, columnName, true, "(" +
                 Utils.TIME_FORMATTER.format(item.getInTime()) + "," +
                 (item.getOutTime() == null ? "" : Utils.TIME_FORMATTER.format(item.getOutTime())) + ")");
     }
