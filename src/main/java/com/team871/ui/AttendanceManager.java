@@ -26,10 +26,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * @author Dave
@@ -445,7 +443,7 @@ public class AttendanceManager {
                 if (name == null) {
                     break cancel;
                 }
-            } while ((students = getStudentsWithLastName(name)).isEmpty());
+            } while ((students = getMembersWithLastName(name)).isEmpty());
 
             Member member;
             if (students.size() > 1) {
@@ -467,12 +465,9 @@ public class AttendanceManager {
         enteringNewSID = false;
     }
 
-    Map<String, Member> getStudentsWithLastName(String name) {
-        Map<String, Member> members = table.getStudentsWithLastName(name);
-
-        if(members == null || members.isEmpty()) {
-            members = mentorTable.getStudentsWithLastName(name);
-        }
+    Map<String, Member> getMembersWithLastName(String name) {
+        final Map<String, Member> members = new HashMap<>(table.getStudentsWithLastName(name));
+        members.putAll(mentorTable.getStudentsWithLastName(name));
 
         return members;
     }

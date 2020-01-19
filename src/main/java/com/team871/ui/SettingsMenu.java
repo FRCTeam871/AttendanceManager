@@ -96,7 +96,7 @@ public class SettingsMenu implements TickListener {
                         continue;
                     }
 
-                    Map<String, Member> byFirstName = attendanceManager.getStudentsWithLastName(parts[1]);
+                    Map<String, Member> byFirstName = attendanceManager.getMembersWithLastName(parts[1]);
                     if(byFirstName != null) {
                         if(byFirstName.get(parts[0]) != null) {
                             break;
@@ -142,7 +142,7 @@ public class SettingsMenu implements TickListener {
             if (name == null) {
                 return null;
             }
-        } while ((students = attendanceManager.getStudentsWithLastName(name)).isEmpty());
+        } while ((students = attendanceManager.getMembersWithLastName(name)).isEmpty());
 
         Member member;
         if (students.size() > 1) {

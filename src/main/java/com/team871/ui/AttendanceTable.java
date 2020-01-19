@@ -270,7 +270,7 @@ public class AttendanceTable {
     public void forceSignOut() {
         final LocalDate date = Settings.getInstance().getDate();
         allMembers.stream()
-                .filter(s -> s.isSignedIn(date))
+                .filter(s -> s.isSignedIn(date) && !s.isSignedOut(date))
                 .forEach(s -> s.signOut(date));
     }
 
