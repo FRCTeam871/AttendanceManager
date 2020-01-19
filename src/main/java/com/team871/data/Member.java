@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -129,7 +130,28 @@ public class Member implements Comparable<Member> {
                 continue;
             }
 
-            attendance.put(date, new AttendanceItem(date));
+            cellValue = cellValue.replaceAll("[()]", "");
+            final String[] timeParts = cellValue.split(",");
+            LocalTime inTime = LocalTime.now();
+            LocalTime outTime = null;
+
+            if(timeParts.length >= 1 && !Utils.isNullOrEmpty(timeParts[0])) {
+                try {
+                    inTime = LocalTime.parse(timeParts[0]);
+                } catch(DateTimeParseException ex) {
+                    log.error("Failed to parse in time " + timeParts[0]);
+                }
+            }
+
+            if(timeParts.length == 2 && !Utils.isNullOrEmpty(timeParts[1])) {
+                try {
+                    outTime = LocalTime.parse(timeParts[1]);
+                } catch(DateTimeParseException ex) {
+                    log.error("Failed to parse out time " + timeParts[1]);
+                }
+            }
+
+            attendance.put(date, new AttendanceItem(date, inTime, outTime));
         }
     }
 
@@ -232,8 +254,8 @@ public class Member implements Comparable<Member> {
             attendanceSheet.addColumn(columnName);
         }
 
-        attendanceSheet.setCell(attendanceRow, columnName, true, "(" +
+        attendanceSheet.setCell(attendanceRow, columnName, true,
                 Utils.TIME_FORMATTER.format(item.getInTime()) + "," +
-                (item.getOutTime() == null ? "" : Utils.TIME_FORMATTER.format(item.getOutTime())) + ")");
+                (item.getOutTime() == null ? "" : Utils.TIME_FORMATTER.format(item.getOutTime())));
     }
 }

@@ -13,12 +13,17 @@ public class AttendanceItem {
     }
 
     public AttendanceItem(LocalDate date) {
-        inTime = date.atTime(LocalTime.now());
+        this(date, LocalTime.now(), null);
     }
 
-    public AttendanceItem(LocalDate date, LocalTime intime, LocalTime outTime) {
-        this.inTime = intime.atDate(date);
-        this.outTime = outTime.atDate(date);
+    public AttendanceItem(LocalDate date, LocalTime inTime, LocalTime outTime) {
+        if(inTime != null) {
+            this.inTime = inTime.atDate(date);
+        }
+
+        if(outTime != null) {
+            this.outTime = outTime.atDate(date);
+        }
     }
 
     public LocalDateTime getInTime() {
