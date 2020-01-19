@@ -7,7 +7,10 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.DecimalFormat;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -17,6 +20,7 @@ import java.util.Map;
 
 public class Member implements Comparable<Member> {
     private static final Logger log = LoggerFactory.getLogger("Member");
+    private static final DecimalFormat DURATION_FORMAT = new DecimalFormat("##.##");
 
     private String firstName;
     private String lastName;
@@ -130,6 +134,8 @@ public class Member implements Comparable<Member> {
                 continue;
             }
 
+            final boolean shouldReformat = cellValue.matches(".*[()]+.*");
+
             cellValue = cellValue.replaceAll("[()]", "");
             final String[] timeParts = cellValue.split(",");
             LocalTime inTime = LocalTime.now();
@@ -143,7 +149,7 @@ public class Member implements Comparable<Member> {
                 }
             }
 
-            if(timeParts.length == 2 && !Utils.isNullOrEmpty(timeParts[1])) {
+            if(timeParts.length >= 2 && !Utils.isNullOrEmpty(timeParts[1])) {
                 try {
                     outTime = LocalTime.parse(timeParts[1]);
                 } catch(DateTimeParseException ex) {
@@ -151,7 +157,13 @@ public class Member implements Comparable<Member> {
                 }
             }
 
-            attendance.put(date, new AttendanceItem(date, inTime, outTime));
+            final AttendanceItem item = new AttendanceItem(date, inTime, outTime);
+            if(timeParts.length == 2 && shouldReformat) {
+                updateAttendanceCell(date, item);
+            }
+
+            attendance.put(date, item);
+
         }
     }
 
@@ -254,8 +266,12 @@ public class Member implements Comparable<Member> {
             attendanceSheet.addColumn(columnName);
         }
 
-        attendanceSheet.setCell(attendanceRow, columnName, true,
-                Utils.TIME_FORMATTER.format(item.getInTime()) + "," +
-                (item.getOutTime() == null ? "" : Utils.TIME_FORMATTER.format(item.getOutTime())));
+        String sheetLine = Utils.TIME_FORMATTER.format(item.getInTime());
+        if(item.getOutTime() != null) {
+            sheetLine += "," + Utils.TIME_FORMATTER.format(item.getOutTime())
+                       + "," + DURATION_FORMAT.format(Duration.between(item.getInTime(), item.getOutTime()).toNanos() / (double)Utils.HOUR_OF_NANOS) ;
+        }
+
+        attendanceSheet.setCell(attendanceRow, columnName, true, sheetLine);
     }
 }

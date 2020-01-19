@@ -10,6 +10,7 @@ public class Utils {
     public static final String TOTAL_COL = "Total";
     public static final String SAFETY_COL = "Safety";
     public static final String FIRST_REG_COL = "First Reg.";
+    public static final long HOUR_OF_NANOS = 1_000_000_000L * 3600;
 
     public static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
     public static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("M/d");
