@@ -39,6 +39,8 @@ public class Member implements Comparable<Member> {
     private final SheetConfig rosterSheet;
     private final SheetConfig attendanceSheet;
 
+    private double totalHours = 0;
+
     public interface Listener {
         void onLogin(Member member);
         void onLogout(Member member);
@@ -163,8 +165,9 @@ public class Member implements Comparable<Member> {
             }
 
             attendance.put(date, item);
-
         }
+
+        maybeUpdateHours();
     }
 
     private <E extends Exception> void checkAndTry(String value, ThrowingRunnable<String, E> action) {
@@ -259,6 +262,9 @@ public class Member implements Comparable<Member> {
 
         return item.getOutTime().toLocalTime();
     }
+    public double getTotalHours() {
+        return totalHours;
+    }
 
     private void updateAttendanceCell(LocalDate date, AttendanceItem item) {
         final String columnName = Utils.DATE_FORMATTER.format(date);
@@ -273,5 +279,19 @@ public class Member implements Comparable<Member> {
         }
 
         attendanceSheet.setCell(attendanceRow, columnName, true, sheetLine);
+        maybeUpdateHours();
+    }
+
+    private void maybeUpdateHours() {
+        long totalTime = 0;
+
+        for(AttendanceItem item : attendance.values()) {
+            if(item.getInTime() != null && item.getOutTime() != null) {
+                totalTime += Duration.between(item.getInTime(), item.getOutTime()).toNanos();
+            }
+        }
+
+        this.totalHours = totalTime/(double)Utils.HOUR_OF_NANOS;
+        rosterSheet.setCell(rosterRow, "Hours", false, DURATION_FORMAT.format(totalHours));
     }
 }

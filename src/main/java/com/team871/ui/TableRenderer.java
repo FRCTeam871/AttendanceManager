@@ -10,11 +10,13 @@ import java.awt.*;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.geom.AffineTransform;
+import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
 public class TableRenderer implements MouseWheelListener {
+    private static final DecimalFormat DURATION_FORMAT = new DecimalFormat("(##.##h)");
     private static final int NAME_COL_WIDTH = 100;
 
     private static final Color CURRENT_DATE_COL = new Color(225, 210, 110);
@@ -157,6 +159,13 @@ public class TableRenderer implements MouseWheelListener {
         cx += NAME_COL_WIDTH;
 
         drawCell(g, cx, cy, NAME_COL_WIDTH, cellHeight, cellColor, member.getFirstName());
+        // Draw in cute little hour counts
+        final Font oldFont = g.getFont();
+        g.setFont(g.getFont().deriveFont(10.0f));
+        final String text = DURATION_FORMAT.format(member.getTotalHours());
+        g.drawString(text, cx + NAME_COL_WIDTH - 4 - g.getFontMetrics().stringWidth(text),
+                     cy + g.getFont().getSize() + 4);
+        g.setFont(oldFont);
         cx += NAME_COL_WIDTH;
 
         boolean foundCurrentDate = false;
