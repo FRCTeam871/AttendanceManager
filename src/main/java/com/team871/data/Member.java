@@ -123,13 +123,7 @@ public class Member implements Comparable<Member> {
                 break;
             }
 
-            final String[] dateParts = dateString.split("/");
-            if(dateParts.length < 2 ) {
-                continue;
-            }
-            final LocalDate date = LocalDate.of(LocalDate.now().getYear(),
-                    Integer.parseInt(dateParts[0]),
-                    Integer.parseInt(dateParts[1]));
+            final LocalDate date = Utils.getLocalDate(dateString);
 
             String cellValue = attendanceSheet.getValue(row, dateString);
             if(Settings.isNullOrEmpty(cellValue)) {
