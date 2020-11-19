@@ -100,6 +100,10 @@ public class Frame {
         canvas.addMouseWheelListener(l);
     }
 
+    public void addMouseListener(MouseListener l) {
+        canvas.addMouseListener(l);
+    }
+
     public void addWindowListener(WindowListener l) {
         frame.addWindowListener(l);
     }

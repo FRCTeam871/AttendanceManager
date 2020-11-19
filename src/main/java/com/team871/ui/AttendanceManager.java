@@ -139,6 +139,7 @@ public class AttendanceManager {
         mentorRenderer = new TableRenderer(mentorTable);
 
         frame.addMouseWheelListener(tableRenderer);
+        frame.addMouseListener(tableRenderer);
         frame.addMouseWheelListener(mentorRenderer);
         frame.addKeyListener(new KeyAdapter() {
             @Override
@@ -182,6 +183,8 @@ public class AttendanceManager {
                             displayTable = DisplayTable.Students;
                             break;
                     }
+                } else if(e.getKeyCode() == KeyEvent.VK_F11) {
+                    setFullscreen(!isFullscreen());
                 }
             }
         });

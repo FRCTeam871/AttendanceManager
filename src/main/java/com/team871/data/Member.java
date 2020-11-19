@@ -41,6 +41,30 @@ public class Member implements Comparable<Member> {
 
     private double totalHours = 0;
 
+    @Override
+    public String toString() {
+        return "Member{" +
+                "firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", id='" + id + '\'' +
+                ", grade=" + grade +
+                ", subteam=" + subteam +
+                ", safeteyFormState=" + safeteyFormState +
+                ", registration=" + registration +
+                ", totalHours=" + totalHours +
+                '}';
+    }
+
+    public void setFirstRegistration(final @NotNull FirstRegistration ref) {
+        this.registration = ref;
+        updateRegistrationCell();
+    }
+
+    public void setSafetyState(SafeteyFormState state) {
+        this.safeteyFormState = state;
+        updateSafetyCell();
+    }
+
     public interface Listener {
         void onLogin(Member member);
         void onLogout(Member member);
@@ -139,7 +163,7 @@ public class Member implements Comparable<Member> {
 
             if(timeParts.length >= 1 && !Utils.isNullOrEmpty(timeParts[0])) {
                 try {
-                    inTime = LocalTime.parse(timeParts[0]);
+                    inTime = LocalTime.parse(timeParts[0].trim());
                 } catch(DateTimeParseException ex) {
                     log.error("Failed to parse in time " + timeParts[0]);
                 }
@@ -147,7 +171,7 @@ public class Member implements Comparable<Member> {
 
             if(timeParts.length >= 2 && !Utils.isNullOrEmpty(timeParts[1])) {
                 try {
-                    outTime = LocalTime.parse(timeParts[1]);
+                    outTime = LocalTime.parse(timeParts[1].trim());
                 } catch(DateTimeParseException ex) {
                     log.error("Failed to parse out time " + timeParts[1]);
                 }
@@ -258,6 +282,14 @@ public class Member implements Comparable<Member> {
     }
     public double getTotalHours() {
         return totalHours;
+    }
+
+    private void updateSafetyCell() {
+        rosterSheet.setCell(rosterRow, "Safety", false, safeteyFormState.toString());
+    }
+
+    private void updateRegistrationCell() {
+        rosterSheet.setCell(rosterRow, "First Reg.", false, registration.toString());
     }
 
     private void updateAttendanceCell(LocalDate date, AttendanceItem item) {
