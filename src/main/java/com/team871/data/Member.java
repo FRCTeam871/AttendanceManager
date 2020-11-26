@@ -29,6 +29,7 @@ public class Member implements Comparable<Member> {
 
     private String id = null;
     private int grade = -1;
+    private int age = -1;
     private Subteam subteam = null;
     private SafeteyFormState safeteyFormState = SafeteyFormState.None;
     private FirstRegistration registration = FirstRegistration.None;
@@ -48,6 +49,7 @@ public class Member implements Comparable<Member> {
                 ", lastName='" + lastName + '\'' +
                 ", id='" + id + '\'' +
                 ", grade=" + grade +
+                ", age=" + age +
                 ", subteam=" + subteam +
                 ", safeteyFormState=" + safeteyFormState +
                 ", registration=" + registration +
@@ -57,12 +59,39 @@ public class Member implements Comparable<Member> {
 
     public void setFirstRegistration(final @NotNull FirstRegistration ref) {
         this.registration = ref;
-        updateRegistrationCell();
+        rosterSheet.setCell(rosterRow, "First Reg.", false, registration.getKey());
     }
 
     public void setSafetyState(SafeteyFormState state) {
         this.safeteyFormState = state;
-        updateSafetyCell();
+        rosterSheet.setCell(rosterRow, "Safety", false, safeteyFormState.toString());
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public int getGrade() {
+        return grade;
+    }
+
+    public Subteam getSubteam() {
+        return subteam;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+        rosterSheet.setCell(rosterRow, "Age", false, Integer.toString(grade));
+    }
+
+    public void setGrade(int grade) {
+        this.grade = grade;
+        rosterSheet.setCell(rosterRow, "Grade", false, Integer.toString(grade));
+    }
+
+    public void setSubteam(@NotNull Subteam subteam) {
+        this.subteam = subteam;
+        rosterSheet.setCell(rosterRow, "Subteam", false, subteam.toString());
     }
 
     public interface Listener {
@@ -81,6 +110,9 @@ public class Member implements Comparable<Member> {
 
         Integer val = roster.getIntValue(row, "Grade");
         this.grade = val == null ? -1 : val;
+
+        val = roster.getIntValue(row, "Age");
+        this.age = val == null ? -1 : val;
 
         checkAndTry(roster.getValue(row, "Safety"), v -> safeteyFormState = SafeteyFormState.valueOf(v));
         checkAndTry(roster.getValue(row, "First Reg."), v -> registration = FirstRegistration.getByKey(v));
@@ -280,16 +312,9 @@ public class Member implements Comparable<Member> {
 
         return item.getOutTime().toLocalTime();
     }
+
     public double getTotalHours() {
         return totalHours;
-    }
-
-    private void updateSafetyCell() {
-        rosterSheet.setCell(rosterRow, "Safety", false, safeteyFormState.toString());
-    }
-
-    private void updateRegistrationCell() {
-        rosterSheet.setCell(rosterRow, "First Reg.", false, registration.toString());
     }
 
     private void updateAttendanceCell(LocalDate date, AttendanceItem item) {

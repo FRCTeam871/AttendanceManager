@@ -192,7 +192,7 @@ public class JPOSSense extends AbstractBarcodeReader {
         Barcode b = BarcodeUtils.getBarcodeByName("Sign In/Out by Name");
         BarcodeUtils.drawBarcode(b, g, (width / 2) - (b.getWidth() / 2), 100);
 
-        b = BarcodeUtils.getBarcodeByName("Correct Name");
+        b = BarcodeUtils.getBarcodeByName("Edit Student");
         BarcodeUtils.drawBarcode(b, g, (width / 4) - (b.getWidth() / 2), 300);
 
         b = BarcodeUtils.getBarcodeByName("Add Student");

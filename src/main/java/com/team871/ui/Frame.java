@@ -59,7 +59,13 @@ public class Frame {
             }
 
             frame.getContentPane().add(canvas);
-            frame.setResizable(false);
+            frame.setResizable(true);
+            frame.addComponentListener(new ComponentAdapter() {
+                @Override
+                public void componentResized(ComponentEvent e) {
+                    canvas.resizeCanvas(e.getComponent().getWidth(), e.getComponent().getHeight());
+                }
+            });
 
             frame.setState(JFrame.NORMAL);
 

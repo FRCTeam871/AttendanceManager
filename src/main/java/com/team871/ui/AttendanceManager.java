@@ -185,11 +185,38 @@ public class AttendanceManager {
                     }
                 } else if(e.getKeyCode() == KeyEvent.VK_F11) {
                     setFullscreen(!isFullscreen());
+                } else if(e.getKeyCode() == KeyEvent.VK_A && e.isControlDown()) {
+                    doAddNew();
                 }
             }
         });
 
         frame.setVisible(true);
+    }
+
+    private void doAddNew() {
+        String res = null;
+        while (true) {
+            res = JOptionPane.showInputDialog(getCanvas(), (res != null) ? "\"" + res + "\" is not a valid name.\n" : "" + "Enter a new Name:");
+            if (res != null) {
+                final String[] parts = res.split("\\s+");
+                if(parts.length != 2) {
+                    continue;
+                }
+
+                Map<String, Member> byFirstName = getMembersWithLastName(parts[1]);
+                if(byFirstName != null) {
+                    if(byFirstName.get(parts[0]) != null) {
+                        break;
+                    }
+                }
+
+                createStudent(parts[0], parts[1]);
+                return;
+            } else {
+                break;
+            }
+        }
     }
 
     private void run() {

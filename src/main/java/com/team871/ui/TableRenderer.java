@@ -13,10 +13,7 @@ import javax.swing.event.ChangeListener;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import java.awt.*;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseWheelEvent;
-import java.awt.event.MouseWheelListener;
+import java.awt.event.*;
 import java.awt.geom.AffineTransform;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
@@ -366,44 +363,54 @@ public class TableRenderer implements MouseWheelListener, MouseListener {
             menu.add(new JSeparator());
 
             final ButtonGroup regButtonGroup = new ButtonGroup();
-            JRadioButtonMenuItem item = new JRadioButtonMenuItem(FirstRegistration.None.toString(), memberUnderCursor.getRegistration() == FirstRegistration.None);
-            item.addItemListener(e1 -> memberUnderCursor.setFirstRegistration(FirstRegistration.None));
-            regButtonGroup.add(item);
-            firstRegMenu.add(item);
+            JRadioButtonMenuItem radioItem = new JRadioButtonMenuItem(FirstRegistration.None.toString(), memberUnderCursor.getRegistration() == FirstRegistration.None);
+            radioItem.addItemListener(e1 -> memberUnderCursor.setFirstRegistration(FirstRegistration.None));
+            regButtonGroup.add(radioItem);
+            firstRegMenu.add(radioItem);
 
-            item = new JRadioButtonMenuItem(FirstRegistration.MissingWaiver.toString(), memberUnderCursor.getRegistration() == FirstRegistration.MissingWaiver);
-            item.addItemListener(e1 -> memberUnderCursor.setFirstRegistration(FirstRegistration.MissingWaiver));
-            regButtonGroup.add(item);
-            firstRegMenu.add(item);
+            radioItem = new JRadioButtonMenuItem(FirstRegistration.MissingWaiver.toString(), memberUnderCursor.getRegistration() == FirstRegistration.MissingWaiver);
+            radioItem.addItemListener(e1 -> memberUnderCursor.setFirstRegistration(FirstRegistration.MissingWaiver));
+            regButtonGroup.add(radioItem);
+            firstRegMenu.add(radioItem);
 
-            item = new JRadioButtonMenuItem(FirstRegistration.Complete.toString(), memberUnderCursor.getRegistration() == FirstRegistration.Complete);
-            item.addItemListener(e1 -> memberUnderCursor.setFirstRegistration(FirstRegistration.Complete));
-            regButtonGroup.add(item);
-            firstRegMenu.add(item);
+            radioItem = new JRadioButtonMenuItem(FirstRegistration.Complete.toString(), memberUnderCursor.getRegistration() == FirstRegistration.Complete);
+            radioItem.addItemListener(e1 -> memberUnderCursor.setFirstRegistration(FirstRegistration.Complete));
+            regButtonGroup.add(radioItem);
+            firstRegMenu.add(radioItem);
             menu.add(firstRegMenu);
 
             JMenu safetyMenu = new JMenu("Safety Form");
             final ButtonGroup safetyButtonGroup = new ButtonGroup();
-            item = new JRadioButtonMenuItem(SafeteyFormState.None.toString(), memberUnderCursor.getSafeteyFormState() == SafeteyFormState.None);
-            item.addItemListener(e1 -> memberUnderCursor.setSafetyState(SafeteyFormState.None));
-            safetyButtonGroup.add(item);
-            safetyMenu.add(item);
+            radioItem = new JRadioButtonMenuItem(SafeteyFormState.None.toString(), memberUnderCursor.getSafeteyFormState() == SafeteyFormState.None);
+            radioItem.addItemListener(e1 -> memberUnderCursor.setSafetyState(SafeteyFormState.None));
+            safetyButtonGroup.add(radioItem);
+            safetyMenu.add(radioItem);
 
-            item = new JRadioButtonMenuItem(SafeteyFormState.Printed.toString(), memberUnderCursor.getSafeteyFormState() == SafeteyFormState.Printed);
-            item.addItemListener(e1 -> memberUnderCursor.setSafetyState(SafeteyFormState.Printed));
-            safetyButtonGroup.add(item);
-            safetyMenu.add(item);
+            radioItem = new JRadioButtonMenuItem(SafeteyFormState.Printed.toString(), memberUnderCursor.getSafeteyFormState() == SafeteyFormState.Printed);
+            radioItem.addItemListener(e1 -> memberUnderCursor.setSafetyState(SafeteyFormState.Printed));
+            safetyButtonGroup.add(radioItem);
+            safetyMenu.add(radioItem);
 
-            item = new JRadioButtonMenuItem(SafeteyFormState.Given.toString(), memberUnderCursor.getSafeteyFormState() == SafeteyFormState.Given);
-            item.addItemListener(e1 -> memberUnderCursor.setSafetyState(SafeteyFormState.Given));
-            safetyButtonGroup.add(item);
-            safetyMenu.add(item);
+            radioItem = new JRadioButtonMenuItem(SafeteyFormState.Given.toString(), memberUnderCursor.getSafeteyFormState() == SafeteyFormState.Given);
+            radioItem.addItemListener(e1 -> memberUnderCursor.setSafetyState(SafeteyFormState.Given));
+            safetyButtonGroup.add(radioItem);
+            safetyMenu.add(radioItem);
 
-            item = new JRadioButtonMenuItem(SafeteyFormState.Signed.toString(), memberUnderCursor.getSafeteyFormState() == SafeteyFormState.Signed);
-            item.addItemListener(e1 -> memberUnderCursor.setSafetyState(SafeteyFormState.Signed));
-            safetyButtonGroup.add(item);
-            safetyMenu.add(item);
+            radioItem = new JRadioButtonMenuItem(SafeteyFormState.Signed.toString(), memberUnderCursor.getSafeteyFormState() == SafeteyFormState.Signed);
+            radioItem.addItemListener(e1 -> memberUnderCursor.setSafetyState(SafeteyFormState.Signed));
+            safetyButtonGroup.add(radioItem);
+            safetyMenu.add(radioItem);
             menu.add(safetyMenu);
+
+            JMenuItem regItem = new JMenuItem(new AbstractAction("Edit Student") {
+                @Override
+                public void actionPerformed(ActionEvent dontcare) {
+                    final StudentEditor editor = new StudentEditor(memberUnderCursor);
+                    editor.setLocationRelativeTo(e.getComponent());
+                    editor.setVisible(true);
+                }
+            });
+            menu.add(regItem);
 
             menu.addPopupMenuListener(new PopupMenuListener() {
                 @Override
