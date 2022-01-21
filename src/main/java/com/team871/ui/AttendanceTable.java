@@ -176,7 +176,7 @@ public class AttendanceTable {
         // Then process the attendance
         for(int i = attFirstRow; i < attendance.getColumnCount(); i++) {
             final String headerVal = attendance.getHeaderValue(i);
-            if("Total".equals(headerVal)) {
+            if("Total".equals(headerVal) || headerVal.isEmpty()) {
                 break;
             }
             switch(headerVal) {

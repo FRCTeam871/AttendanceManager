@@ -29,6 +29,7 @@ public class Member implements Comparable<Member> {
 
     private String id = null;
     private int grade = -1;
+    private int age = -1;
     private Subteam subteam = null;
     private SafeteyFormState safeteyFormState = SafeteyFormState.None;
     private FirstRegistration registration = FirstRegistration.None;
@@ -40,6 +41,58 @@ public class Member implements Comparable<Member> {
     private final SheetConfig attendanceSheet;
 
     private double totalHours = 0;
+
+    @Override
+    public String toString() {
+        return "Member{" +
+                "firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", id='" + id + '\'' +
+                ", grade=" + grade +
+                ", age=" + age +
+                ", subteam=" + subteam +
+                ", safeteyFormState=" + safeteyFormState +
+                ", registration=" + registration +
+                ", totalHours=" + totalHours +
+                '}';
+    }
+
+    public void setFirstRegistration(final @NotNull FirstRegistration ref) {
+        this.registration = ref;
+        rosterSheet.setCell(rosterRow, "First Reg.", false, registration.getKey());
+    }
+
+    public void setSafetyState(SafeteyFormState state) {
+        this.safeteyFormState = state;
+        rosterSheet.setCell(rosterRow, "Safety", false, safeteyFormState.toString());
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public int getGrade() {
+        return grade;
+    }
+
+    public Subteam getSubteam() {
+        return subteam;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+        rosterSheet.setCell(rosterRow, "Age", false, Integer.toString(grade));
+    }
+
+    public void setGrade(int grade) {
+        this.grade = grade;
+        rosterSheet.setCell(rosterRow, "Grade", false, Integer.toString(grade));
+    }
+
+    public void setSubteam(@NotNull Subteam subteam) {
+        this.subteam = subteam;
+        rosterSheet.setCell(rosterRow, "Subteam", false, subteam.toString());
+    }
 
     public interface Listener {
         void onLogin(Member member);
@@ -57,6 +110,9 @@ public class Member implements Comparable<Member> {
 
         Integer val = roster.getIntValue(row, "Grade");
         this.grade = val == null ? -1 : val;
+
+        val = roster.getIntValue(row, "Age");
+        this.age = val == null ? -1 : val;
 
         checkAndTry(roster.getValue(row, "Safety"), v -> safeteyFormState = SafeteyFormState.valueOf(v));
         checkAndTry(roster.getValue(row, "First Reg."), v -> registration = FirstRegistration.getByKey(v));
@@ -123,13 +179,7 @@ public class Member implements Comparable<Member> {
                 break;
             }
 
-            final String[] dateParts = dateString.split("/");
-            if(dateParts.length < 2 ) {
-                continue;
-            }
-            final LocalDate date = LocalDate.of(LocalDate.now().getYear(),
-                    Integer.parseInt(dateParts[0]),
-                    Integer.parseInt(dateParts[1]));
+            final LocalDate date = Utils.getLocalDate(dateString);
 
             String cellValue = attendanceSheet.getValue(row, dateString);
             if(Settings.isNullOrEmpty(cellValue)) {
@@ -145,7 +195,7 @@ public class Member implements Comparable<Member> {
 
             if(timeParts.length >= 1 && !Utils.isNullOrEmpty(timeParts[0])) {
                 try {
-                    inTime = LocalTime.parse(timeParts[0]);
+                    inTime = LocalTime.parse(timeParts[0].trim());
                 } catch(DateTimeParseException ex) {
                     log.error("Failed to parse in time " + timeParts[0]);
                 }
@@ -153,7 +203,7 @@ public class Member implements Comparable<Member> {
 
             if(timeParts.length >= 2 && !Utils.isNullOrEmpty(timeParts[1])) {
                 try {
-                    outTime = LocalTime.parse(timeParts[1]);
+                    outTime = LocalTime.parse(timeParts[1].trim());
                 } catch(DateTimeParseException ex) {
                     log.error("Failed to parse out time " + timeParts[1]);
                 }
@@ -262,6 +312,7 @@ public class Member implements Comparable<Member> {
 
         return item.getOutTime().toLocalTime();
     }
+
     public double getTotalHours() {
         return totalHours;
     }

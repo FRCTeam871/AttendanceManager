@@ -59,7 +59,13 @@ public class Frame {
             }
 
             frame.getContentPane().add(canvas);
-            frame.setResizable(false);
+            frame.setResizable(true);
+            frame.addComponentListener(new ComponentAdapter() {
+                @Override
+                public void componentResized(ComponentEvent e) {
+                    canvas.resizeCanvas(e.getComponent().getWidth(), e.getComponent().getHeight());
+                }
+            });
 
             frame.setState(JFrame.NORMAL);
 
@@ -98,6 +104,10 @@ public class Frame {
 
     public void addMouseWheelListener(MouseWheelListener l) {
         canvas.addMouseWheelListener(l);
+    }
+
+    public void addMouseListener(MouseListener l) {
+        canvas.addMouseListener(l);
     }
 
     public void addWindowListener(WindowListener l) {

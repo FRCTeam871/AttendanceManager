@@ -5,6 +5,7 @@ import com.team871.exception.RobotechException;
 import com.team871.sensing.AbstractBarcodeReader;
 import com.team871.sensing.BarcodeResult;
 import com.team871.sensing.JPOSSense;
+import com.team871.sensing.KeyboardSense;
 import com.team871.util.BarcodeUtils;
 import com.team871.util.Settings;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -106,7 +107,7 @@ public class AttendanceManager {
     }
 
     private void init() throws RobotechException {
-        barcodeSensor = new JPOSSense();
+        barcodeSensor = new JPOSSense();//new KeyboardSense(); //new JPOSSense();
         settingsMenu = new SettingsMenu(this, barcodeSensor);
         barcodeSensor.addListener( (code, changed) -> {
             if (BarcodeUtils.isSettingsCommand(code)) {
@@ -139,6 +140,7 @@ public class AttendanceManager {
         mentorRenderer = new TableRenderer(mentorTable);
 
         frame.addMouseWheelListener(tableRenderer);
+        frame.addMouseListener(tableRenderer);
         frame.addMouseWheelListener(mentorRenderer);
         frame.addKeyListener(new KeyAdapter() {
             @Override
@@ -182,11 +184,40 @@ public class AttendanceManager {
                             displayTable = DisplayTable.Students;
                             break;
                     }
+                } else if(e.getKeyCode() == KeyEvent.VK_F11) {
+                    setFullscreen(!isFullscreen());
+                } else if(e.getKeyCode() == KeyEvent.VK_A && e.isControlDown()) {
+                    doAddNew();
                 }
             }
         });
 
         frame.setVisible(true);
+    }
+
+    private void doAddNew() {
+        String res = null;
+        while (true) {
+            res = JOptionPane.showInputDialog(getCanvas(), (res != null) ? "\"" + res + "\" is not a valid name.\n" : "" + "Enter a new Name:");
+            if (res != null) {
+                final String[] parts = res.split("\\s+");
+                if(parts.length != 2) {
+                    continue;
+                }
+
+                Map<String, Member> byFirstName = getMembersWithLastName(parts[1]);
+                if(byFirstName != null) {
+                    if(byFirstName.get(parts[0]) != null) {
+                        break;
+                    }
+                }
+
+                createStudent(parts[0], parts[1]);
+                return;
+            } else {
+                break;
+            }
+        }
     }
 
     private void run() {
