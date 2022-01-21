@@ -1,15 +1,12 @@
 package com.team871.ui;
 
 import com.team871.data.FirstRegistration;
-import com.team871.data.SafeteyFormState;
 import com.team871.data.Member;
+import com.team871.data.SafeteyFormState;
 import com.team871.util.Settings;
 import com.team871.util.Utils;
-import sun.print.DialogOnTop;
 
 import javax.swing.*;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import java.awt.*;

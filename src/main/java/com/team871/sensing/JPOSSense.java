@@ -41,7 +41,7 @@ public class JPOSSense extends AbstractBarcodeReader {
     public JPOSSense() throws RobotechException {
         String jposXmlPath = Settings.getInstance().getJposXmlPath();
         logger.info("YeahTim! -> " + getClass().getClassLoader().getResource("audio/tim.wav"));
-        logger.info("Looking for jpos.xml at " + jposXmlPath);
+        logger.info("Looking for jpos.xml.orig at " + jposXmlPath);
         System.setProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, jposXmlPath);
 
         try {
