@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import java.text.DecimalFormat;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -59,12 +58,12 @@ public class Member implements Comparable<Member> {
 
     public void setFirstRegistration(final @NotNull FirstRegistration ref) {
         this.registration = ref;
-        rosterSheet.setCell(rosterRow, "First Reg.", false, registration.getKey());
+        rosterSheet.setCell(rosterRow, "First Reg.", registration.getKey());
     }
 
     public void setSafetyState(SafeteyFormState state) {
         this.safeteyFormState = state;
-        rosterSheet.setCell(rosterRow, "Safety", false, safeteyFormState.toString());
+        rosterSheet.setCell(rosterRow, "Safety", safeteyFormState.toString());
     }
 
     public int getAge() {
@@ -81,17 +80,17 @@ public class Member implements Comparable<Member> {
 
     public void setAge(int age) {
         this.age = age;
-        rosterSheet.setCell(rosterRow, "Age", false, Integer.toString(grade));
+        rosterSheet.setCell(rosterRow, "Age", Integer.toString(grade));
     }
 
     public void setGrade(int grade) {
         this.grade = grade;
-        rosterSheet.setCell(rosterRow, "Grade", false, Integer.toString(grade));
+        rosterSheet.setCell(rosterRow, "Grade", Integer.toString(grade));
     }
 
     public void setSubteam(@NotNull Subteam subteam) {
         this.subteam = subteam;
-        rosterSheet.setCell(rosterRow, "Subteam", false, subteam.toString());
+        rosterSheet.setCell(rosterRow, "Subteam", subteam.toString());
     }
 
     public interface Listener {
@@ -132,13 +131,13 @@ public class Member implements Comparable<Member> {
         rosterRow = rosterSheet.addRow();
         attendanceRow = attendanceSheet.addRow();
 
-        rosterSheet.setCell(rosterRow, Utils.LAST_NAME_COL, true, lastName);
-        rosterSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, true, firstName);
-        rosterSheet.setCell(rosterRow, Utils.SAFETY_COL, true, SafeteyFormState.None.name());
-        rosterSheet.setCell(rosterRow, Utils.FIRST_REG_COL, true, FirstRegistration.None.getKey());
+        rosterSheet.setCell(rosterRow, Utils.LAST_NAME_COL, lastName);
+        rosterSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, firstName);
+        rosterSheet.setCell(rosterRow, Utils.SAFETY_COL, SafeteyFormState.None.name());
+        rosterSheet.setCell(rosterRow, Utils.FIRST_REG_COL, FirstRegistration.None.getKey());
 
-        attendanceSheet.setCell(rosterRow, Utils.LAST_NAME_COL, true, lastName);
-        attendanceSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, true, firstName);
+        attendanceSheet.setCell(rosterRow, Utils.LAST_NAME_COL, lastName);
+        attendanceSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, firstName);
     }
 
     public void addListener(Listener l) {
@@ -276,7 +275,7 @@ public class Member implements Comparable<Member> {
     public void setId(String sid) {
         final String oldId = id;
         this.id = sid;
-        rosterSheet.setCell(rosterRow, "SID", true, sid);
+        rosterSheet.setCell(rosterRow, "SID", sid);
 
         listeners.forEach(l -> l.onIdChanged(this, oldId));
     }
@@ -288,10 +287,10 @@ public class Member implements Comparable<Member> {
         this.firstName = first;
         this.lastName = last;
 
-        rosterSheet.setCell(rosterRow, Utils.LAST_NAME_COL, true, last);
-        rosterSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, true, first);
-        attendanceSheet.setCell(rosterRow, Utils.LAST_NAME_COL, true, last);
-        attendanceSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, true, first);
+        rosterSheet.setCell(rosterRow, Utils.LAST_NAME_COL, last);
+        rosterSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, first);
+        attendanceSheet.setCell(rosterRow, Utils.LAST_NAME_COL, last);
+        attendanceSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, first);
         listeners.forEach(l -> l.onNameChanged(this, oldLast, oldFirst));
     }
 
@@ -329,7 +328,7 @@ public class Member implements Comparable<Member> {
                        + "," + DURATION_FORMAT.format(Duration.between(item.getInTime(), item.getOutTime()).toNanos() / (double)Utils.HOUR_OF_NANOS) ;
         }
 
-        attendanceSheet.setCell(attendanceRow, columnName, true, sheetLine);
+        attendanceSheet.setCell(attendanceRow, columnName, sheetLine);
         maybeUpdateHours();
     }
 
@@ -343,6 +342,6 @@ public class Member implements Comparable<Member> {
         }
 
         this.totalHours = totalTime/(double)Utils.HOUR_OF_NANOS;
-        rosterSheet.setCell(rosterRow, "Hours", false, DURATION_FORMAT.format(totalHours));
+        rosterSheet.setCell(rosterRow, "Hours", DURATION_FORMAT.format(totalHours));
     }
 }

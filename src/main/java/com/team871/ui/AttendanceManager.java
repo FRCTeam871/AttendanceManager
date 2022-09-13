@@ -46,7 +46,7 @@ public class AttendanceManager {
     AbstractBarcodeReader barcodeSensor;
 
     private int flashTimer = 0;
-    private int flashTimerMax = 30;
+    private final int flashTimerMax = 30;
 
     private BarcodeResult lastResult;
     private String lastSID = "???";
@@ -55,16 +55,13 @@ public class AttendanceManager {
     TableRenderer tableRenderer;
     AttendanceTable table;
 
-    TableRenderer mentorRenderer;
-    AttendanceTable mentorTable;
-
     DisplayTable displayTable = DisplayTable.Students;
 
     private boolean enteringNewSID = false;
 
     private SettingsMenu settingsMenu;
 
-    private int clearTimerMax = 60 * 4;
+    private final int clearTimerMax = 60 * 4;
     private int clearTimer = clearTimerMax;
 
     private State currentState = State.Normal;
@@ -77,7 +74,7 @@ public class AttendanceManager {
     }
 
     private enum DisplayTable {
-        Students, Mentors
+        Students
     }
 
     public static void main(String[] args) {
@@ -100,7 +97,8 @@ public class AttendanceManager {
         logger.info("Initializing AttendenceManager");
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException |
+                 UnsupportedLookAndFeelException e) {
             logger.error("Error setting LAF: " + e.toString());
         }
         frame = new Frame();
@@ -109,15 +107,15 @@ public class AttendanceManager {
     private void init() throws RobotechException {
         try {
             barcodeSensor = new JPOSSense();
-        } catch (Exception ex){
+        } catch (Exception ex) {
             logger.error("Failed to create JPOSSense: ", ex);
             barcodeSensor = new KeyboardSense();
         }
         settingsMenu = new SettingsMenu(this, barcodeSensor);
-        barcodeSensor.addListener( (code, changed) -> {
+        barcodeSensor.addListener((code, changed) -> {
             if (BarcodeUtils.isSettingsCommand(code)) {
                 settingsMenu.handleResult(code);
-            } else if(BarcodeUtils.isAdminCommand(code)) {
+            } else if (BarcodeUtils.isAdminCommand(code)) {
                 handleAdmin(code);
             } else {
                 handleBarcode(code);
@@ -125,35 +123,27 @@ public class AttendanceManager {
         });
         final Settings settings = Settings.getInstance();
 
-        try(final FileInputStream stream = new FileInputStream(settings.getSheetPath().toFile())) {
+        try (final FileInputStream stream = new FileInputStream(settings.getSheetPath().toFile())) {
             workbook = WorkbookFactory.create(stream);
         } catch (IOException e) {
             throw new RobotechException("Failed to load attendance file", e);
         }
 
         table = new AttendanceTable(workbook,
-                                settings.getRosterSheet(), settings.getAttendanceSheet(),
-                                settings.getAttendanceHeaderRow(), settings.getRosterHeaderRow(),
-                                settings.getAttendanceFirstDataRow(), settings.getRosterFirstDataRow());
+                settings.getRosterSheet(), settings.getAttendanceSheet(),
+                settings.getAttendanceHeaderRow(), settings.getRosterHeaderRow(),
+                settings.getAttendanceFirstDataRow(), settings.getRosterFirstDataRow());
         tableRenderer = new TableRenderer(table);
-
-        mentorTable = new AttendanceTable(workbook,
-                settings.getMentorRosterSheet(), settings.getMentorAttendanceSheet(),
-                settings.getMentorAttendanceHeaderRow(), settings.getMentorRosterHeaderRow(),
-                settings.getMentorAttendanceFirstDataRow(), settings.getMentorRosterFirstDataRow());
-
-        mentorRenderer = new TableRenderer(mentorTable);
 
         frame.addMouseWheelListener(tableRenderer);
         frame.addMouseListener(tableRenderer);
-        frame.addMouseWheelListener(mentorRenderer);
         frame.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_S && e.isControlDown()) {
                     showSaveDialog();
-                } else if(e.getKeyCode() == KeyEvent.VK_Q && e.isControlDown()) {
-                    if (table.hasUnsaved() || mentorTable.hasUnsaved()) {
+                } else if (e.getKeyCode() == KeyEvent.VK_Q && e.isControlDown()) {
+                    if (table.hasUnsaved()) {
                         int result = JOptionPane.showConfirmDialog(frame.getCanvas(), "You have unsaved changes!\nDo you want to save?", frame.getTitle(), JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
 
                         switch (result) {
@@ -178,20 +168,13 @@ public class AttendanceManager {
                     currentState = currentState == State.Settings ? State.Normal : State.Settings;
                 } else if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown() && e.isAltDown()) {
                     playYeaTim();
-                } else if(e.getKeyCode() == KeyEvent.VK_L) {
+                } else if (e.getKeyCode() == KeyEvent.VK_L) {
                     settingsMenu.doManualLogin();
-                } else if(e.getKeyCode() == KeyEvent.VK_N) {
-                    switch (displayTable) {
-                        case Students:
-                            displayTable = DisplayTable.Mentors;
-                            break;
-                        case Mentors:
-                            displayTable = DisplayTable.Students;
-                            break;
-                    }
-                } else if(e.getKeyCode() == KeyEvent.VK_F11) {
+                } else if (e.getKeyCode() == KeyEvent.VK_N) {
+                    // NOTHING TO DO NOW
+                } else if (e.getKeyCode() == KeyEvent.VK_F11) {
                     setFullscreen(!isFullscreen());
-                } else if(e.getKeyCode() == KeyEvent.VK_A && e.isControlDown()) {
+                } else if (e.getKeyCode() == KeyEvent.VK_A && e.isControlDown()) {
                     doAddNew();
                 }
             }
@@ -206,13 +189,13 @@ public class AttendanceManager {
             res = JOptionPane.showInputDialog(getCanvas(), (res != null) ? "\"" + res + "\" is not a valid name.\n" : "" + "Enter a new Name:");
             if (res != null) {
                 final String[] parts = res.split("\\s+");
-                if(parts.length != 2) {
+                if (parts.length != 2) {
                     continue;
                 }
 
                 Map<String, Member> byFirstName = getMembersWithLastName(parts[1]);
-                if(byFirstName != null) {
-                    if(byFirstName.get(parts[0]) != null) {
+                if (byFirstName != null) {
+                    if (byFirstName.get(parts[0]) != null) {
                         break;
                     }
                 }
@@ -285,9 +268,6 @@ public class AttendanceManager {
         switch (displayTable) {
             case Students:
                 tableRenderer.tick(time);
-                break;
-            case Mentors:
-                mentorRenderer.tick(time);
                 break;
         }
         settingsMenu.tick(time);
@@ -397,10 +377,6 @@ public class AttendanceManager {
                 tableRenderer.setDimension(tableRect);
                 tableRenderer.drawTable(g);
                 break;
-            case Mentors:
-                mentorRenderer.setDimension(tableRect);
-                mentorRenderer.drawTable(g);
-                break;
         }
 
         g.setTransform(tr);
@@ -417,9 +393,9 @@ public class AttendanceManager {
 
     private void handleBarcode(BarcodeResult result) {
         if (enteringNewSID ||
-            currentState == State.Settings ||
-            BarcodeUtils.isSettingsCommand(result) ||
-            BarcodeUtils.isAdminCommand(result)) {
+                currentState == State.Settings ||
+                BarcodeUtils.isSettingsCommand(result) ||
+                BarcodeUtils.isAdminCommand(result)) {
             return; //don't accept new scans if setting up new SID
         }
 
@@ -428,7 +404,7 @@ public class AttendanceManager {
         this.member = null;
         final String newSID = result.getText().replaceFirst("^0+(?!$)", ""); // remove leading zeros;
 
-        if(!isValidSID(newSID)) {
+        if (!isValidSID(newSID)) {
             lastResult = result;
             lastSID = "INVALID";
             if (lastResult.getText().equals("871")) {
@@ -459,12 +435,7 @@ public class AttendanceManager {
     }
 
     private Member findMember(String newSID) {
-        Member member = table.getStudentById(newSID);
-        if(member == null) {
-            member = mentorTable.getStudentById(newSID);
-        }
-
-        return member;
+        return table.getStudentById(newSID);
     }
 
     private void handleNewSID(String sid) {
@@ -502,10 +473,7 @@ public class AttendanceManager {
     }
 
     Map<String, Member> getMembersWithLastName(String name) {
-        final Map<String, Member> members = new HashMap<>(table.getStudentsWithLastName(name));
-        members.putAll(mentorTable.getStudentsWithLastName(name));
-
-        return members;
+        return new HashMap<>(table.getStudentsWithLastName(name));
     }
 
     private void handleLogin(Member member) {
@@ -541,11 +509,10 @@ public class AttendanceManager {
     }
 
     private void showSaveDialog() {
-        if(!table.areAllSignedOut() || !mentorTable.areAllSignedOut()) {
+        if (!table.areAllSignedOut()) {
             int result = JOptionPane.showConfirmDialog(null, "There are people that haven't signed out.\nDo you want to sign them out?\n(If not, sign in time will be saved)", "Attendance Manager", JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
             if (result == JOptionPane.YES_OPTION) {
                 table.forceSignOut();
-                mentorTable.forceSignOut();
             }
         }
 
@@ -564,13 +531,12 @@ public class AttendanceManager {
             FileOutputStream out = new FileOutputStream(f);
             workbook.write(out); // write the workbook to the file
             out.close();
-        } catch(Exception e) {
+        } catch (Exception e) {
             logger.warn("Error writing spreadsheet: ", e);
             success = false;
         }
 
         table.setSaved();
-        mentorTable.setSaved();
 
         if (success) {
             JOptionPane.showMessageDialog(frame.getCanvas(), "Attendance saved.", frame.getTitle(), JOptionPane.INFORMATION_MESSAGE);
@@ -610,9 +576,6 @@ public class AttendanceManager {
         switch (displayTable) {
             case Students:
                 table.createStudent(first, last);
-                break;
-            case Mentors:
-                mentorTable.createStudent(first, last);
                 break;
         }
     }

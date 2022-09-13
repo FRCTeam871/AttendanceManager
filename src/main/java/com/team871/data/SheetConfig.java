@@ -1,6 +1,8 @@
 package com.team871.data;
 
 import org.apache.poi.ss.usermodel.*;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -10,42 +12,55 @@ public class SheetConfig {
 
     private final Sheet sheet;
     private final int headerRow;
-    private int columnCount;
-    private final Map<String, Integer> columnMap;
+    private int columnCount = 0;
+    private final Map<String, Integer> columnMap = new LinkedHashMap<>();
 
-    public SheetConfig(Sheet sheet, int headerRow) {
+    public SheetConfig(@NotNull final Sheet sheet, final int headerRow) {
         this.sheet = sheet;
         this.headerRow = headerRow;
-        columnMap = new LinkedHashMap<>();
-
         final Row header = sheet.getRow(headerRow);
-        columnCount = header.getLastCellNum();
-        for(int i = 0; i < header.getLastCellNum(); i++) {
-            final Cell cell = header.getCell(i);
-            if(cell == null || cell.getCellType() == CellType.FORMULA) {
+        this.columnCount = header.getLastCellNum();
+        for (int ii = 0; ii < columnCount; ii++) {
+            final Cell cell = header.getCell(ii);
+            if (cell == null || cell.getCellType() == CellType.FORMULA) {
                 continue;
             }
 
-            columnMap.put(FORMATTER.formatCellValue(cell), i);
+            columnMap.put(FORMATTER.formatCellValue(cell), ii);
         }
     }
 
-    public String getValue(int row, String column) {
+    @Nullable
+    public String getValue(final int row, @NotNull final String column) {
         final Integer cellIndex = columnMap.get(column);
-        if(cellIndex == null) {
+        if (cellIndex == null) {
             return null;
         }
 
-        return FORMATTER.formatCellValue(sheet.getRow(row + headerRow + 1).getCell(cellIndex));
+        return FORMATTER.formatCellValue(getRow(row).getCell(cellIndex));
     }
 
-    public Integer getIntValue(int row, String column) {
+    @Nullable
+    public Integer getIntValue(final int row, @NotNull final String column) {
         final Integer cellIndex = columnMap.get(column);
-        if(cellIndex == null) {
+        if (cellIndex == null) {
             return null;
         }
 
-        return (int)sheet.getRow(row + headerRow + 1).getCell(cellIndex).getNumericCellValue();
+        final Cell cell = getRow(row).getCell(cellIndex);
+        switch (cell.getCellType()) {
+            case STRING:
+                try {
+                    return Integer.valueOf(cell.getStringCellValue());
+                } catch (NumberFormatException ex) {
+                    return null;
+                }
+            case NUMERIC:
+                return (int) cell.getNumericCellValue();
+
+            default:
+                return null;
+        }
     }
 
     public String getHeaderValue(int cell) {
@@ -61,7 +76,7 @@ public class SheetConfig {
     }
 
     public boolean rowExists(int row) {
-        return sheet.getRow(row + headerRow + 1) != null;
+        return getRow(row) != null;
     }
 
     public Row getRow(int row) {
@@ -72,24 +87,20 @@ public class SheetConfig {
         return sheet.createRow(sheet.getLastRowNum() + 1).getRowNum() - headerRow - 1;
     }
 
-    public void setCell(int rowNum, String column, boolean create, String value) {
+    public void setCell(int rowNum, String column, String value) {
         final Integer cellIndex = columnMap.get(column);
-        if(cellIndex == null ) {
+        if (cellIndex == null) {
             throw new IllegalArgumentException("Column " + column + " does not exist");
         }
 
-        final Row row = sheet.getRow(rowNum + headerRow + 1);
-        if(row == null) {
+        final Row row = getRow(rowNum);
+        if (row == null) {
             throw new IllegalArgumentException("Row " + rowNum + " does not exist");
         }
 
         Cell cell = row.getCell(cellIndex);
-        if(cell == null) {
-            if(create) {
-                cell = row.createCell(cellIndex);
-            } else {
-                throw new IllegalArgumentException(("Cell does not exist and create not set"));
-            }
+        if (cell == null) {
+            cell = row.createCell(cellIndex);
         }
 
         cell.setCellValue(value);
@@ -102,6 +113,6 @@ public class SheetConfig {
     public void addColumn(String columnName) {
         columnMap.put(columnName, columnCount);
         columnCount++;
-        setCell(-1, columnName, true, columnName);
+        setCell(-1, columnName, columnName);
     }
 }
