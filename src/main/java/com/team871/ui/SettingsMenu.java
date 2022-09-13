@@ -64,26 +64,12 @@ public class SettingsMenu implements TickListener {
 
         actions.put(BarcodeUtils.getBarcodeByName("Toggle Fullscreen"), () -> attendanceManager.setFullscreen(!attendanceManager.isFullscreen()));
 
-        actions.put(BarcodeUtils.getBarcodeByName("Correct Name"), () -> new Thread(()-> {
+        actions.put(BarcodeUtils.getBarcodeByName("Edit Student"), () -> new Thread(()-> {
             final Member member = getStudent();
             if(member == null) {
                 return;
             }
-            String res = null;
-            while (true) {
-                res = JOptionPane.showInputDialog(attendanceManager.getCanvas(), (res != null) ? "\"" + res + "\" is not a valid name.\n" : "" + "Enter a new Name:");
-                if (res != null) {
-                    final String[] parts = res.split("\\s+");
-                    if(parts.length != 2) {
-                        continue;
-                    }
-
-                    member.setName(parts[0], parts[1]);
-                    return;
-                } else {
-                    break;
-                }
-            }
+            doEditStudent(member);
         }).start());
 
         actions.put(BarcodeUtils.getBarcodeByName("Add Student"), () -> new Thread(()-> {
@@ -96,7 +82,7 @@ public class SettingsMenu implements TickListener {
                         continue;
                     }
 
-                    Map<String, Member> byFirstName = attendanceManager.getStudentsWithLastName(parts[1]);
+                    Map<String, Member> byFirstName = attendanceManager.getMembersWithLastName(parts[1]);
                     if(byFirstName != null) {
                         if(byFirstName.get(parts[0]) != null) {
                             break;
@@ -110,6 +96,12 @@ public class SettingsMenu implements TickListener {
                 }
             }
         }).start());
+    }
+
+    public void doEditStudent(Member member) {
+        final StudentEditor editor = new StudentEditor(member);
+        editor.setLocationRelativeTo(attendanceManager.getCanvas());
+        editor.setVisible(true);
     }
 
     public void doManualLogin() {
@@ -138,17 +130,17 @@ public class SettingsMenu implements TickListener {
         Map<String, Member> students;
         String name = null;
         do {
-            name = JOptionPane.showInputDialog((name != null ? "That name is not present.\n" : "") + "Enter the last name of the member:");
+            name = JOptionPane.showInputDialog(attendanceManager.getCanvas(), (name != null ? "That name is not present.\n" : "") + "Enter the last name of the member:");
             if (name == null) {
                 return null;
             }
-        } while ((students = attendanceManager.getStudentsWithLastName(name)).isEmpty());
+        } while ((students = attendanceManager.getMembersWithLastName(name)).isEmpty());
 
         Member member;
         if (students.size() > 1) {
             String firstName = null;
             do {
-                firstName = JOptionPane.showInputDialog((firstName != null ? "That name is not present.\n" : "") + "There are multiple people with that last name!\nEnter the first name of the member:");
+                firstName = JOptionPane.showInputDialog(attendanceManager.getCanvas(), (firstName != null ? "That name is not present.\n" : "") + "There are multiple people with that last name!\nEnter the first name of the member:");
                 if (firstName == null) {
                     return null;
                 }

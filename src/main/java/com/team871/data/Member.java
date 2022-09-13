@@ -7,8 +7,11 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.DecimalFormat;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +19,7 @@ import java.util.Map;
 
 public class Member implements Comparable<Member> {
     private static final Logger log = LoggerFactory.getLogger("Member");
+    private static final DecimalFormat DURATION_FORMAT = new DecimalFormat("##.##");
 
     private String firstName;
     private String lastName;
@@ -24,6 +28,7 @@ public class Member implements Comparable<Member> {
 
     private String id = null;
     private int grade = -1;
+    private int age = -1;
     private Subteam subteam = null;
     private SafeteyFormState safeteyFormState = SafeteyFormState.None;
     private FirstRegistration registration = FirstRegistration.None;
@@ -33,6 +38,60 @@ public class Member implements Comparable<Member> {
 
     private final SheetConfig rosterSheet;
     private final SheetConfig attendanceSheet;
+
+    private double totalHours = 0;
+
+    @Override
+    public String toString() {
+        return "Member{" +
+                "firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", id='" + id + '\'' +
+                ", grade=" + grade +
+                ", age=" + age +
+                ", subteam=" + subteam +
+                ", safeteyFormState=" + safeteyFormState +
+                ", registration=" + registration +
+                ", totalHours=" + totalHours +
+                '}';
+    }
+
+    public void setFirstRegistration(final @NotNull FirstRegistration ref) {
+        this.registration = ref;
+        rosterSheet.setCell(rosterRow, "First Reg.", registration.getKey());
+    }
+
+    public void setSafetyState(SafeteyFormState state) {
+        this.safeteyFormState = state;
+        rosterSheet.setCell(rosterRow, "Safety", safeteyFormState.toString());
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public int getGrade() {
+        return grade;
+    }
+
+    public Subteam getSubteam() {
+        return subteam;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+        rosterSheet.setCell(rosterRow, "Age", Integer.toString(grade));
+    }
+
+    public void setGrade(int grade) {
+        this.grade = grade;
+        rosterSheet.setCell(rosterRow, "Grade", Integer.toString(grade));
+    }
+
+    public void setSubteam(@NotNull Subteam subteam) {
+        this.subteam = subteam;
+        rosterSheet.setCell(rosterRow, "Subteam", subteam.toString());
+    }
 
     public interface Listener {
         void onLogin(Member member);
@@ -50,6 +109,9 @@ public class Member implements Comparable<Member> {
 
         Integer val = roster.getIntValue(row, "Grade");
         this.grade = val == null ? -1 : val;
+
+        val = roster.getIntValue(row, "Age");
+        this.age = val == null ? -1 : val;
 
         checkAndTry(roster.getValue(row, "Safety"), v -> safeteyFormState = SafeteyFormState.valueOf(v));
         checkAndTry(roster.getValue(row, "First Reg."), v -> registration = FirstRegistration.getByKey(v));
@@ -69,13 +131,13 @@ public class Member implements Comparable<Member> {
         rosterRow = rosterSheet.addRow();
         attendanceRow = attendanceSheet.addRow();
 
-        rosterSheet.setCell(rosterRow, Utils.LAST_NAME_COL, true, lastName);
-        rosterSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, true, firstName);
-        rosterSheet.setCell(rosterRow, Utils.SAFETY_COL, true, SafeteyFormState.None.name());
-        rosterSheet.setCell(rosterRow, Utils.FIRST_REG_COL, true, FirstRegistration.None.getKey());
+        rosterSheet.setCell(rosterRow, Utils.LAST_NAME_COL, lastName);
+        rosterSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, firstName);
+        rosterSheet.setCell(rosterRow, Utils.SAFETY_COL, SafeteyFormState.None.name());
+        rosterSheet.setCell(rosterRow, Utils.FIRST_REG_COL, FirstRegistration.None.getKey());
 
-        attendanceSheet.setCell(rosterRow, Utils.LAST_NAME_COL, true, lastName);
-        attendanceSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, true, firstName);
+        attendanceSheet.setCell(rosterRow, Utils.LAST_NAME_COL, lastName);
+        attendanceSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, firstName);
     }
 
     public void addListener(Listener l) {
@@ -116,21 +178,45 @@ public class Member implements Comparable<Member> {
                 break;
             }
 
-            final String[] dateParts = dateString.split("/");
-            if(dateParts.length < 2 ) {
-                continue;
-            }
-            final LocalDate date = LocalDate.of(LocalDate.now().getYear(),
-                    Integer.parseInt(dateParts[0]),
-                    Integer.parseInt(dateParts[1]));
+            final LocalDate date = Utils.getLocalDate(dateString);
 
             String cellValue = attendanceSheet.getValue(row, dateString);
             if(Settings.isNullOrEmpty(cellValue)) {
                 continue;
             }
 
-            attendance.put(date, new AttendanceItem(date));
+            final boolean shouldReformat = cellValue.matches(".*[()]+.*");
+
+            cellValue = cellValue.replaceAll("[()]", "");
+            final String[] timeParts = cellValue.split(",");
+            LocalTime inTime = LocalTime.now();
+            LocalTime outTime = null;
+
+            if(timeParts.length >= 1 && !Utils.isNullOrEmpty(timeParts[0])) {
+                try {
+                    inTime = LocalTime.parse(timeParts[0].trim());
+                } catch(DateTimeParseException ex) {
+                    log.error("Failed to parse in time " + timeParts[0]);
+                }
+            }
+
+            if(timeParts.length >= 2 && !Utils.isNullOrEmpty(timeParts[1])) {
+                try {
+                    outTime = LocalTime.parse(timeParts[1].trim());
+                } catch(DateTimeParseException ex) {
+                    log.error("Failed to parse out time " + timeParts[1]);
+                }
+            }
+
+            final AttendanceItem item = new AttendanceItem(date, inTime, outTime);
+            if(timeParts.length == 2 && shouldReformat) {
+                updateAttendanceCell(date, item);
+            }
+
+            attendance.put(date, item);
         }
+
+        maybeUpdateHours();
     }
 
     private <E extends Exception> void checkAndTry(String value, ThrowingRunnable<String, E> action) {
@@ -189,7 +275,7 @@ public class Member implements Comparable<Member> {
     public void setId(String sid) {
         final String oldId = id;
         this.id = sid;
-        rosterSheet.setCell(rosterRow, "SID", true, sid);
+        rosterSheet.setCell(rosterRow, "SID", sid);
 
         listeners.forEach(l -> l.onIdChanged(this, oldId));
     }
@@ -201,10 +287,10 @@ public class Member implements Comparable<Member> {
         this.firstName = first;
         this.lastName = last;
 
-        rosterSheet.setCell(rosterRow, Utils.LAST_NAME_COL, true, last);
-        rosterSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, true, first);
-        attendanceSheet.setCell(rosterRow, Utils.LAST_NAME_COL, true, last);
-        attendanceSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, true, first);
+        rosterSheet.setCell(rosterRow, Utils.LAST_NAME_COL, last);
+        rosterSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, first);
+        attendanceSheet.setCell(rosterRow, Utils.LAST_NAME_COL, last);
+        attendanceSheet.setCell(rosterRow, Utils.FIRST_NAME_COL, first);
         listeners.forEach(l -> l.onNameChanged(this, oldLast, oldFirst));
     }
 
@@ -226,14 +312,36 @@ public class Member implements Comparable<Member> {
         return item.getOutTime().toLocalTime();
     }
 
+    public double getTotalHours() {
+        return totalHours;
+    }
+
     private void updateAttendanceCell(LocalDate date, AttendanceItem item) {
         final String columnName = Utils.DATE_FORMATTER.format(date);
         if(!attendanceSheet.columnExists(columnName)) {
             attendanceSheet.addColumn(columnName);
         }
 
-        attendanceSheet.setCell(attendanceRow, columnName, true, "(" +
-                Utils.TIME_FORMATTER.format(item.getInTime()) + "," +
-                (item.getOutTime() == null ? "" : Utils.TIME_FORMATTER.format(item.getOutTime())) + ")");
+        String sheetLine = Utils.TIME_FORMATTER.format(item.getInTime());
+        if(item.getOutTime() != null) {
+            sheetLine += "," + Utils.TIME_FORMATTER.format(item.getOutTime())
+                       + "," + DURATION_FORMAT.format(Duration.between(item.getInTime(), item.getOutTime()).toNanos() / (double)Utils.HOUR_OF_NANOS) ;
+        }
+
+        attendanceSheet.setCell(attendanceRow, columnName, sheetLine);
+        maybeUpdateHours();
+    }
+
+    private void maybeUpdateHours() {
+        long totalTime = 0;
+
+        for(AttendanceItem item : attendance.values()) {
+            if(item.getInTime() != null && item.getOutTime() != null) {
+                totalTime += Duration.between(item.getInTime(), item.getOutTime()).toNanos();
+            }
+        }
+
+        this.totalHours = totalTime/(double)Utils.HOUR_OF_NANOS;
+        rosterSheet.setCell(rosterRow, "Hours", DURATION_FORMAT.format(totalHours));
     }
 }

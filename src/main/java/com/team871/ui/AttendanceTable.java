@@ -176,7 +176,7 @@ public class AttendanceTable {
         // Then process the attendance
         for(int i = attFirstRow; i < attendance.getColumnCount(); i++) {
             final String headerVal = attendance.getHeaderValue(i);
-            if("Total".equals(headerVal)) {
+            if("Total".equals(headerVal) || headerVal.isEmpty()) {
                 break;
             }
             switch(headerVal) {
@@ -270,7 +270,7 @@ public class AttendanceTable {
     public void forceSignOut() {
         final LocalDate date = Settings.getInstance().getDate();
         allMembers.stream()
-                .filter(s -> s.isSignedIn(date))
+                .filter(s -> s.isSignedIn(date) && !s.isSignedOut(date))
                 .forEach(s -> s.signOut(date));
     }
 
