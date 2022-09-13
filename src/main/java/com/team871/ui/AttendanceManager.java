@@ -107,7 +107,12 @@ public class AttendanceManager {
     }
 
     private void init() throws RobotechException {
-        barcodeSensor = new JPOSSense();//new KeyboardSense(); //new JPOSSense();
+        try {
+            barcodeSensor = new JPOSSense();
+        } catch (Exception ex){
+            logger.error("Failed to create JPOSSense: ", ex);
+            barcodeSensor = new KeyboardSense();
+        }
         settingsMenu = new SettingsMenu(this, barcodeSensor);
         barcodeSensor.addListener( (code, changed) -> {
             if (BarcodeUtils.isSettingsCommand(code)) {
