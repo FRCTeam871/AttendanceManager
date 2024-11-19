@@ -48,6 +48,9 @@ public class SheetConfig {
         }
 
         final Cell cell = getRow(row).getCell(cellIndex);
+        if(cell == null) {
+            return null;
+        }
         switch (cell.getCellType()) {
             case STRING:
                 try {
